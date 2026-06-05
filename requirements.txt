@@ -1,0 +1,6 @@
+# The engine itself is pure Python standard library — `python run.py --mock`
+# needs nothing installed.
+#
+# These are only needed for:
+flask>=3.0        # the live viewer (viewer/server.py)
+anthropic>=0.40   # live mode (python run.py, without --mock); requires ANTHROPIC_API_KEY
