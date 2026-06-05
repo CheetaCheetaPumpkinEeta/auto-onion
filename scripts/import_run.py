@@ -147,6 +147,9 @@ def main() -> None:
             continue
         tag = _read_json(rd / "logs" / "cycle_tag.json") or {}
         cycle = int(tag.get("second_loop_cycle", 0) or 0)
+        # Skip in-progress cycle runs (a cycle with no verdict in the L2 log yet).
+        if cycle > 0 and cycle not in sl_rows:
+            continue
         exps, best, total = _build_experiments(rd)
         sl = sl_rows.get(cycle, {})
         solution = rd / "solution" / "main.py"

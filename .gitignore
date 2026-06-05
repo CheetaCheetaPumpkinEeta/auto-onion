@@ -8,6 +8,6 @@ venv/
 # Run artifacts — regenerate with `python run.py --mock`.
 runs/*
 !runs/.gitkeep
-# ...except the committed sample run (real engine output, shown by default in the viewer).
-!runs/demo-set-cover/
-!runs/demo-set-cover/**
+# ...except the committed sample runs (real engine output, shown in the viewer's run-picker).
+!runs/demo-*/
+!runs/demo-*/**

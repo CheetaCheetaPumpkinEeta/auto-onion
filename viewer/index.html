@@ -17,6 +17,8 @@
   header h1 { font-size:15px; margin:0; letter-spacing:.5px; }
   header h1 .on { color:#e3b341; }
   header .sub { color:var(--dim); font-size:12px; }
+  header #runpick { background:var(--panel); color:var(--fg); border:1px solid var(--line);
+    border-radius:6px; padding:3px 8px; font:inherit; font-size:11px; max-width:360px; cursor:pointer; }
   header .best { margin-left:auto; font-size:12px; color:var(--dim); }
   header .best b { color:var(--green); font-size:20px; }
   main { display:grid; grid-template-columns: 1fr 380px; height:calc(100vh - 46px); }
@@ -51,6 +53,7 @@
   <header>
     <h1>auto-<span class="on">onion</span> <span class="sub">lineage graph</span></h1>
     <span class="sub" id="task">loading…</span>
+    <select id="runpick" title="choose a run to view"></select>
     <div class="best">best&nbsp; <b id="best">—</b> vs baseline</div>
   </header>
   <main>
@@ -89,6 +92,7 @@ const SIB = 210, DEP = 84;         // sibling spacing, depth spacing (vertical l
 let svg, gMain, gZones, gLinks, gNodes, zoom;
 let transform = null, didFit = false, selectedId = null, lastTree = null;
 let expanded = new Set();          // run ids whose ground experiments are shown
+let currentRun = "";               // which run dir the viewer is showing
 
 function idOf(d){ return d.data.id || (d.data.type+"/"+d.data.name); }
 // Collapse experiments by default (like omnididdy): a run shows its `ground`
@@ -312,7 +316,7 @@ function showDetail(d){
 
 async function tick(){
   try{
-    const s = await (await fetch("/api/state")).json();
+    const s = await (await fetch("/api/state?run=" + encodeURIComponent(currentRun))).json();
     $("task").textContent = s.task || "";
     $("best").textContent = (s.best_improvement_pct==null||s.empty) ? "—" : (s.best_improvement_pct>0?"+":"")+Number(s.best_improvement_pct).toFixed(2)+"%";
     if (!s.tree){ return; }
@@ -321,7 +325,20 @@ async function tick(){
     render(s.tree);
   }catch(e){ /* keep retrying */ }
 }
-mount(); tick(); setInterval(tick, 1500);
+async function loadRuns(){
+  try{
+    const r = await (await fetch("/api/runs")).json();
+    const sel = $("runpick"); sel.innerHTML = "";
+    (r.runs||[]).forEach(it=>{ const o=document.createElement("option"); o.value=it.run;
+      const best=(it.best!=null)?` (${it.best>0?"+":""}${Number(it.best).toFixed(1)}%)`:"";
+      o.textContent=(it.demo?"demo · ":"")+it.run+best; sel.appendChild(o); });
+    if(!currentRun) currentRun = r.default || ((r.runs[0]||{}).run) || "";
+    sel.value = currentRun;
+    sel.onchange = ()=>{ currentRun=sel.value; didFit=false; expanded=new Set(); selectedId=null; lastBest=null;
+      $("detail").innerHTML='<span class="hint">Click a node in the graph to inspect it.</span>'; $("codecard").style.display="none"; tick(); };
+  }catch(e){}
+}
+mount(); loadRuns().then(tick); setInterval(tick, 1500);
 </script>
 </body>
 </html>
