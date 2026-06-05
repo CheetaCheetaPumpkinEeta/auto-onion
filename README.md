@@ -6,7 +6,7 @@ solver, keeps what works, and climbs a benchmark — no human in the loop.**
 *CS 153 — The One-Person Frontier Lab.* `frontier-loop` is a minimal, from-scratch
 distillation of the two-tier optimization engine from my larger research project,
 [omnididdy](#acknowledgements--citations). It strips that system down to its
-essential mechanism so the idea is legible in ~600 lines of pure-Python you can
+essential mechanism so the idea is legible in ~700 lines of pure-Python you can
 read in one sitting and run with zero API keys.
 
 https://github.com/USER/frontier-loop  ·  demo video: *(link)*
