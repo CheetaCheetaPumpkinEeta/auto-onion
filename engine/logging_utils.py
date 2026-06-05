@@ -98,6 +98,56 @@ class Recorder:
             rows.append(f"{a['cycle']:>5}  {imp:>19}  {a['status']:<9}  {a['name']}")
         return "\n".join(rows)
 
+    # ---- lineage graph --------------------------------------------------
+    def _build_nodes(self) -> list[dict]:
+        """Derive the parent_id lineage graph the viewer draws.
+
+        The graph is a tree: a *spine* of kept nodes (the trunk the search
+        actually followed) with every reverted attempt hanging off it as a
+        dead-end leaf. An architecture's install node (iter 0) parents to the
+        incumbent's best node at the time it was proposed; each refinement
+        parents to the best node so far within its cycle. This is the same
+        parent_id lineage idea the full system (omnididdy) renders.
+        """
+        nodes: list[dict] = []
+        trunk_tip = None          # id of the current incumbent's best node
+        best_id, best_fit = None, float("inf")
+        for arch in self.state["architectures"]:
+            cycle = arch["cycle"]
+            spine = None          # best node so far *within* this cycle
+            cycle_best_id, cycle_best_fit = None, float("inf")
+            for e in arch["experiments"]:
+                it = e["iter"]
+                nid = f"c{cycle}_i{it}"
+                fit = e["fitness"]
+                fitf = float("inf") if fit == "inf" else float(fit)
+                if it == 0:       # the architecture's install IS the architecture node
+                    kind = "baseline" if cycle == 0 else "arch"
+                    parent = trunk_tip
+                    status = arch["status"]          # green/red = kept/reverted at L2
+                    label = arch["name"]
+                    spine = nid
+                else:             # an L1 refinement attempt
+                    kind = "exp"
+                    parent = spine
+                    status = e["status"]
+                    label = e["hypothesis"]
+                    if e["status"] == "kept":
+                        spine = nid
+                nodes.append({"id": nid, "parent": parent, "kind": kind, "label": label,
+                              "status": status, "improvement_pct": e["improvement_pct"],
+                              "fitness": fit, "cycle": cycle, "iter": it})
+                if fitf < cycle_best_fit:
+                    cycle_best_fit, cycle_best_id = fitf, nid
+                if fitf < best_fit:
+                    best_fit, best_id = fitf, nid
+            # a kept architecture (or the baseline) advances the trunk
+            if (arch["status"] == "kept" or cycle == 0) and cycle_best_id is not None:
+                trunk_tip = cycle_best_id
+        for n in nodes:
+            n["is_best"] = n["id"] == best_id
+        return nodes
+
     # ---- internals ------------------------------------------------------
     def _arch(self, cycle: int) -> dict:
         for a in reversed(self.state["architectures"]):
@@ -111,6 +161,7 @@ class Recorder:
             f.write(f"{level}\t{cycle}\t{iteration}\t{_safe(fitness)}\t{imp}\t{status}\t{hypothesis}\n")
 
     def _flush(self) -> None:
+        self.state["nodes"] = self._build_nodes()
         self.state_path.write_text(json.dumps(self.state, indent=2), encoding="utf-8")
 
 
