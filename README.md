@@ -187,6 +187,12 @@ runs/<timestamp>/               per-run state.json + results.tsv
   `AnthropicClient` changes *nothing* in the engine — same loops, same gates — so a
   successful live run is evidence the mechanism isn't tied to the scripted ladder.
 
+**Safety note.** In **live** mode the system executes model-generated Python on
+your machine (in a timed subprocess, but without filesystem/network sandboxing) —
+that's intrinsic to "an LLM rewrites its own solver." Run it in a throwaway
+environment if that matters to you. Offline `--mock` mode executes only the
+scripted code in this repo.
+
 **Honest limitations.** The search is *greedy* (no archive of rejected ideas, no
 backtracking — see §7). The mock ladder is short by design, so offline mode
 demonstrates the mechanism rather than open-ended discovery; real exploration
