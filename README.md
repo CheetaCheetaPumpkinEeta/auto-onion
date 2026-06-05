@@ -144,7 +144,29 @@ winning architecture: multi-start NN + 2-opt + or-opt, keep the best tour over r
 The outer loop discovered a clear ladder of *shapes* — construction → local search
 → metaheuristic — each one tuned to its ceiling before being compared, ending
 **17.1 % shorter** than the nearest-neighbour baseline. The viewer renders this as
-a tree (green = kept, red = reverted) next to a live drawing of the best tour.
+an interactive d3 lineage graph — the architecture trunk (green = kept, red =
+reverted) with each node's full `solution.py` in the side panel.
+
+### A real run, not just the toy
+
+The *engine* is benchmark-agnostic; TSP is just the small, fully-reproducible
+substrate bundled for `--mock`. To show the same two loops on a harder problem,
+the repo ships a **real run** that the viewer displays by default —
+`runs/demo-set-cover/` — a genuine two-loop search on the **set-cover** benchmark
+(minimise the cost gap to an LP lower bound). It found, in order:
+
+```
+baseline (greedy)        26.29% gap
+→ ILP via HiGHS          15.66%   kept
+→ Lagrangian relaxation  11.79%   kept   ← best, 55% better than baseline
+→ tabu search            15.28%   reverted (its tuned ceiling didn't beat the incumbent)
+```
+
+That run was produced by the **parent engine, omnididdy** (the larger system
+auto-onion is a trimmed reimplementation of), and imported into auto-onion's
+viewer format by [`scripts/import_run.py`](scripts/import_run.py) — which reads the
+run's plain JSON/TSV artifacts directly, with no dependency on the parent project.
+Click any architecture node to read its actual `solution.py`. Disclosed in §8.
 
 ---
 
@@ -170,8 +192,12 @@ task/
   instances.py                  deterministic, seeded TSP instances
 viewer/
   server.py                     ~30-line Flask app: serves the page + /api/state
-  index.html                    one self-contained page: tree + live tour canvas
-runs/<timestamp>/               per-run state.json + results.tsv
+  index.html                    self-contained d3 lineage graph + code panel
+scripts/
+  import_run.py                 turn a real parent-engine run into a viewer state.json
+runs/
+  demo-set-cover/               committed REAL run (set-cover) shown by default (see §4)
+  <timestamp>/                  your own runs (git-ignored)
 ```
 
 ---
@@ -233,6 +259,14 @@ Code (Claude Opus 4.x)** wrote much of the code under that direction. The system
 `--mock`). The offline `--mock` mode contains no AI calls — it's scripted Python so
 the project is reproducible without credentials. All design decisions, limitations,
 and the choice of what to trim from the parent project are my own.
+
+**On the bundled `runs/demo-set-cover/` data:** that sample run was *not* produced by
+running auto-onion (whose bundled benchmark is TSP). It is **real output from the
+parent engine (omnididdy)** on the set-cover benchmark, imported into auto-onion's
+viewer format via `scripts/import_run.py` so the viewer can show the engine working
+on a non-toy problem. It is genuine engine output, clearly labelled as such, and
+reproducible against the parent project; auto-onion's own from-scratch reproducible
+run is `python run.py --mock`.
 
 ---
 
