@@ -11,6 +11,7 @@ Watch it live in the viewer:  python viewer/server.py  ->  http://localhost:5005
 from __future__ import annotations
 
 import argparse
+import os
 import time
 from pathlib import Path
 
@@ -30,6 +31,9 @@ def main() -> None:
     ap.add_argument("--l1-iters", type=int, default=4, help="L1 refinement iterations per architecture")
     ap.add_argument("--l2-model", default="claude-opus-4-8", help="model for the architecture proposer")
     ap.add_argument("--l1-model", default="claude-sonnet-4-6", help="model for the refinement proposer")
+    ap.add_argument("--backend", choices=["auto", "api", "cli"], default="auto",
+                    help="live LLM backend: 'api' (anthropic SDK + ANTHROPIC_API_KEY), "
+                         "'cli' (local claude CLI / Claude Code login), or 'auto' (api if a key is set, else cli)")
     ap.add_argument("--run-dir", default=None, help="output directory (default: runs/<timestamp>)")
     args = ap.parse_args()
 
@@ -39,10 +43,18 @@ def main() -> None:
         l2_client = l1_client = shared
         mode = "MOCK (offline, scripted edits)"
     else:
-        from engine.llm import AnthropicClient
-        l2_client = AnthropicClient(args.l2_model)
-        l1_client = AnthropicClient(args.l1_model)
-        mode = f"LIVE (L2={args.l2_model}, L1={args.l1_model})"
+        backend = args.backend
+        if backend == "auto":
+            backend = "api" if os.environ.get("ANTHROPIC_API_KEY") else "cli"
+        if backend == "api":
+            from engine.llm import AnthropicClient
+            l2_client = AnthropicClient(args.l2_model)
+            l1_client = AnthropicClient(args.l1_model)
+        else:
+            from engine.llm import ClaudeCLIClient
+            l2_client = ClaudeCLIClient(args.l2_model)
+            l1_client = ClaudeCLIClient(args.l1_model)
+        mode = f"LIVE/{backend} (L2={args.l2_model}, L1={args.l1_model})"
 
     run_dir = Path(args.run_dir) if args.run_dir else REPO / "runs" / time.strftime("%Y%m%d-%H%M%S")
     recorder = Recorder(run_dir, TASK_LABEL)

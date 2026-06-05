@@ -4,6 +4,8 @@ Three things live here:
 
 * ``LLMClient``      — the interface both loops call: ``complete(system, user, kind)``.
 * ``AnthropicClient``— real Claude calls via the official SDK (needs ANTHROPIC_API_KEY).
+* ``ClaudeCLIClient``— real Claude via the local ``claude`` CLI; uses your existing
+                       Claude Code login, so no API key is needed.
 * ``MockClient``     — a deterministic, offline stand-in that returns *real, runnable*
                        code edits from a scripted library, so the whole two-loop
                        system can be demonstrated with zero API keys and zero cost.
@@ -16,6 +18,8 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
+import tempfile
 
 _CODE_BLOCK = re.compile(r"```(?:python)?\s*(.*?)```", re.DOTALL)
 
@@ -60,6 +64,33 @@ class AnthropicClient(LLMClient):
             messages=[{"role": "user", "content": user}],
         )
         return "".join(block.text for block in msg.content if block.type == "text")
+
+
+class ClaudeCLIClient(LLMClient):
+    """Live mode through the local ``claude`` CLI (Claude Code).
+
+    Uses your existing Claude Code login, so no ANTHROPIC_API_KEY is required —
+    this is how the parent project (omnididdy) drives Claude. The CLI runs in
+    print mode from an empty temp directory, so it behaves as a pure code
+    generator with no project context or filesystem detours.
+    """
+
+    def __init__(self, model: str, timeout: int = 180):
+        self.model = model
+        self.timeout = timeout
+        self._cwd = tempfile.mkdtemp(prefix="auto_onion_cli_")
+
+    def complete(self, system: str, user: str, kind: str = "l1") -> str:
+        prompt = f"{system}\n\n---\n\n{user}"
+        try:
+            proc = subprocess.run(
+                f"claude --print --model {self.model}",
+                input=prompt, capture_output=True, text=True,
+                timeout=self.timeout, shell=True, cwd=self._cwd,
+            )
+        except subprocess.TimeoutExpired:
+            return ""
+        return proc.stdout or ""
 
 
 class MockClient(LLMClient):
