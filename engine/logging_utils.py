@@ -1,23 +1,44 @@
 """Run recorder.
 
 Owns the on-disk state for a run:
-* ``state.json`` — the live snapshot the viewer polls (architectures, experiments,
-  best tour so far). Rewritten after every experiment so the viewer is always live.
+* ``state.json`` — the live snapshot the viewer polls. Besides the flat
+  architecture/experiment records it carries a ``tree``: the same hierarchical
+  shape the parent project (omnididdy) feeds its dashboard —
+  ``origin → benchmark → second_loop → run → ground_container → ground_experiment`` —
+  so the viewer can render an identical d3 lineage graph. Every node carries the
+  full code block that produced it.
 * ``results.tsv`` — a flat, Karpathy-style log: one row per experiment, ever.
 
-It also renders the small history tables that get fed back into the proposer
-prompts — the only "memory" this trimmed-down system has is this flat log.
+It also renders the small history tables fed back into the proposer prompts —
+the only "memory" this trimmed-down system has is this flat log.
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
+METRIC_NAME = "tour ratio"      # mean tour length / nearest-neighbour baseline
+METRIC_FORMAT = ".4f"
+METRIC_DIRECTION = "minimize"   # lower fitness is better
+BASELINE_LOSS = 1.0             # the nearest-neighbour baseline scores exactly 1.0
+
 
 def _improvement_pct(fitness: float):
     if fitness == float("inf"):
         return None
     return round((1.0 - fitness) * 100.0, 2)
+
+
+def _safe(fitness: float):
+    """JSON can't hold inf; represent a failed eval as the string 'inf'."""
+    return "inf" if fitness == float("inf") else round(fitness, 4)
+
+
+def _num(v):
+    """Stored fitness -> JSON number or None (val_loss the viewer can format)."""
+    if v is None or v == "inf" or v == float("inf"):
+        return None
+    return v
 
 
 class Recorder:
@@ -29,9 +50,11 @@ class Recorder:
         self.state = {
             "task": task_label,
             "status": "running",
+            "metric_name": METRIC_NAME,
+            "metric_format": METRIC_FORMAT,
+            "metric_direction": METRIC_DIRECTION,
             "best_fitness": float("inf"),
             "best_improvement_pct": 0.0,
-            "best_tour": None,
             "architectures": [],
         }
         self.tsv_path.write_text("level\tcycle\titer\tfitness\timprovement_pct\tstatus\thypothesis\n", encoding="utf-8")
@@ -53,20 +76,16 @@ class Recorder:
         self._flush()
 
     def add_experiment(self, cycle: int, iteration: int, fitness: float, status: str,
-                       hypothesis: str, detail: dict | None = None) -> None:
+                       hypothesis: str, detail: dict | None = None, code: str = "") -> None:
         arch = self._arch(cycle)
         imp = _improvement_pct(fitness)
         arch["experiments"].append(
             {"iter": iteration, "fitness": _safe(fitness), "improvement_pct": imp,
-             "status": status, "hypothesis": hypothesis}
+             "status": status, "hypothesis": hypothesis, "code": code}
         )
-        # Track the global best tour for the viewer's picture.
         if fitness < self.state["best_fitness"]:
             self.state["best_fitness"] = fitness
             self.state["best_improvement_pct"] = imp
-            showcase = (detail or {}).get("showcase")
-            if showcase:
-                self.state["best_tour"] = showcase
         self._append_tsv("L1" if cycle or iteration else "L0", cycle, iteration, fitness, status, hypothesis)
         self._flush()
 
@@ -98,55 +117,105 @@ class Recorder:
             rows.append(f"{a['cycle']:>5}  {imp:>19}  {a['status']:<9}  {a['name']}")
         return "\n".join(rows)
 
-    # ---- lineage graph --------------------------------------------------
-    def _build_nodes(self) -> list[dict]:
-        """Derive the parent_id lineage graph the viewer draws.
+    # ---- lineage tree (omnididdy-shaped) --------------------------------
+    def _experiment_nodes(self, arch: dict) -> list[dict]:
+        """Build the ground_experiment lineage for one architecture: the install
+        node (iter 0) is the root; each refinement parents to the best node so
+        far (the spine), so kept attempts extend the trunk and reverted ones
+        hang off as dead-end leaves."""
+        cycle = arch["cycle"]
+        roots: list[dict] = []
+        spine: dict | None = None
+        for e in arch["experiments"]:
+            it = e["iter"]
+            if it == 0:  # the install — colour it by the architecture's fate
+                if arch["status"] == "running":
+                    status, improved = "running", False
+                else:
+                    kept = arch["status"] == "kept" or cycle == 0
+                    status, improved = ("kept" if kept else "reverted"), kept
+            else:        # a refinement attempt
+                improved = e["status"] == "kept"
+                status = e["status"] if e["status"] in ("kept", "reverted", "running") else "reverted"
+            node = {
+                "name": f"exp-{cycle:02d}.{it}",
+                "type": "ground_experiment",
+                "id": f"{cycle}.{it}",
+                "val_loss": _num(e["fitness"]),
+                "improved": improved,
+                "status": status,
+                "hypothesis": e["hypothesis"],
+                "code": e.get("code", ""),
+                "metric_format": METRIC_FORMAT,
+                "metric_direction": METRIC_DIRECTION,
+                "baseline_loss": BASELINE_LOSS,
+                "children": [],
+            }
+            if it == 0:
+                roots.append(node)
+                spine = node
+            else:
+                (spine or node)["children"].append(node)
+                if improved:
+                    spine = node
+        return roots
 
-        The graph is a tree: a *spine* of kept nodes (the trunk the search
-        actually followed) with every reverted attempt hanging off it as a
-        dead-end leaf. An architecture's install node (iter 0) parents to the
-        incumbent's best node at the time it was proposed; each refinement
-        parents to the best node so far within its cycle. This is the same
-        parent_id lineage idea the full system (omnididdy) renders.
-        """
-        nodes: list[dict] = []
-        trunk_tip = None          # id of the current incumbent's best node
-        best_id, best_fit = None, float("inf")
+    def _build_tree(self) -> dict:
+        runs_children: list[dict] = []
+        trunk = runs_children
         for arch in self.state["architectures"]:
             cycle = arch["cycle"]
-            spine = None          # best node so far *within* this cycle
-            cycle_best_id, cycle_best_fit = None, float("inf")
-            for e in arch["experiments"]:
-                it = e["iter"]
-                nid = f"c{cycle}_i{it}"
-                fit = e["fitness"]
-                fitf = float("inf") if fit == "inf" else float(fit)
-                if it == 0:       # the architecture's install IS the architecture node
-                    kind = "baseline" if cycle == 0 else "arch"
-                    parent = trunk_tip
-                    status = arch["status"]          # green/red = kept/reverted at L2
-                    label = arch["name"]
-                    spine = nid
-                else:             # an L1 refinement attempt
-                    kind = "exp"
-                    parent = spine
-                    status = e["status"]
-                    label = e["hypothesis"]
-                    if e["status"] == "kept":
-                        spine = nid
-                nodes.append({"id": nid, "parent": parent, "kind": kind, "label": label,
-                              "status": status, "improvement_pct": e["improvement_pct"],
-                              "fitness": fit, "cycle": cycle, "iter": it})
-                if fitf < cycle_best_fit:
-                    cycle_best_fit, cycle_best_id = fitf, nid
-                if fitf < best_fit:
-                    best_fit, best_id = fitf, nid
-            # a kept architecture (or the baseline) advances the trunk
-            if (arch["status"] == "kept" or cycle == 0) and cycle_best_id is not None:
-                trunk_tip = cycle_best_id
-        for n in nodes:
-            n["is_best"] = n["id"] == best_id
-        return nodes
+            best = _num(arch.get("best_fitness"))
+            ground = {
+                "name": "ground", "type": "ground_container",
+                "id": f"ground-{cycle:04d}",
+                "total_experiments": len(arch["experiments"]),
+                "best_loss": best,
+                "children": self._experiment_nodes(arch),
+            }
+            if cycle == 0:
+                run_rank = "baseline"
+            elif arch["status"] == "running":
+                run_rank = "running"
+            elif arch["status"] == "kept":
+                run_rank = "green"
+            else:
+                run_rank = "red"
+            run = {
+                "name": ("baseline" if cycle == 0 else arch["name"]),
+                "type": "run",
+                "id": f"run-{cycle:04d}",
+                "run_rank": run_rank,
+                "active": arch["status"] == "running",
+                "best_loss": best,
+                "baseline_loss": BASELINE_LOSS,
+                "total_experiments": len(arch["experiments"]),
+                "improvement_pct": arch.get("improvement_pct"),
+                "hypothesis": arch["name"],
+                "code": arch.get("code", ""),
+                "metric_name": METRIC_NAME,
+                "metric_format": METRIC_FORMAT,
+                "metric_direction": METRIC_DIRECTION,
+                "children": [ground],
+            }
+            trunk.append(run)
+            if cycle == 0 or arch["status"] == "kept":  # kept architecture advances the trunk
+                trunk = run["children"]
+
+        second_loop = {
+            "name": "second loop proposer", "type": "second_loop",
+            "total_runs": len(self.state["architectures"]),
+            "best_loss": _num(self.state["best_fitness"]),
+            "children": runs_children,
+        }
+        benchmark = {
+            "name": "tsp", "type": "benchmark",
+            "metric_name": METRIC_NAME, "metric_format": METRIC_FORMAT,
+            "metric_direction": METRIC_DIRECTION,
+            "best_loss": _num(self.state["best_fitness"]), "baseline_loss": BASELINE_LOSS,
+            "children": [second_loop],
+        }
+        return {"name": "origin", "type": "origin", "children": [benchmark]}
 
     # ---- internals ------------------------------------------------------
     def _arch(self, cycle: int) -> dict:
@@ -161,10 +230,5 @@ class Recorder:
             f.write(f"{level}\t{cycle}\t{iteration}\t{_safe(fitness)}\t{imp}\t{status}\t{hypothesis}\n")
 
     def _flush(self) -> None:
-        self.state["nodes"] = self._build_nodes()
+        self.state["tree"] = self._build_tree()
         self.state_path.write_text(json.dumps(self.state, indent=2), encoding="utf-8")
-
-
-def _safe(fitness: float):
-    """JSON can't hold inf; represent a failed eval as the string 'inf'."""
-    return "inf" if fitness == float("inf") else round(fitness, 4)

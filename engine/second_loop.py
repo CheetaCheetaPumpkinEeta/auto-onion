@@ -60,7 +60,7 @@ def run_second_loop(l2_client, l1_client, l2_system, l1_system, cycles, l1_iters
             print(f"[L2 cycle {c}] proposed: {name}\n             install -> {shown}   (tuning...)")
 
         if install_fit == float("inf"):  # broken architecture — don't waste a tuning pass
-            recorder.add_experiment(c, 0, install_fit, "failed", name, {})
+            recorder.add_experiment(c, 0, install_fit, "failed", name, {}, code=arch_code)
             recorder.finish_architecture(c, "reverted", install_fit)
             SOLUTION.write_text(incumbent_code, encoding="utf-8")
             if verbose:

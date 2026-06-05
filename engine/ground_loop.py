@@ -71,7 +71,7 @@ def run_ground_loop(client, l1_system, iters, recorder, cycle, start_fitness, st
     best_fitness = start_fitness
     best_code = SOLUTION.read_text(encoding="utf-8")
     best_detail = start_detail
-    recorder.add_experiment(cycle, 0, start_fitness, "installed", hypothesis_of(best_code), start_detail)
+    recorder.add_experiment(cycle, 0, start_fitness, "installed", hypothesis_of(best_code), start_detail, code=best_code)
 
     for it in range(1, iters + 1):
         current_code = SOLUTION.read_text(encoding="utf-8")
@@ -86,7 +86,7 @@ def run_ground_loop(client, l1_system, iters, recorder, cycle, start_fitness, st
         else:
             SOLUTION.write_text(best_code, encoding="utf-8")  # revert
             status = "failed" if fitness == float("inf") else "reverted"
-        recorder.add_experiment(cycle, it, fitness, status, hypothesis_of(new_code), detail)
+        recorder.add_experiment(cycle, it, fitness, status, hypothesis_of(new_code), detail, code=new_code)
         if verbose:
             shown = "  fail" if fitness == float("inf") else f"{(1 - fitness) * 100:+6.2f}%"
             print(f"    [L1 {it}/{iters}] {shown}  {status:<8}  {hypothesis_of(new_code)}")
