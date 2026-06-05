@@ -31,8 +31,6 @@
   .pill.kept { background:rgba(63,185,80,.15); color:var(--green); }
   .pill.reverted,.pill.failed { background:rgba(248,81,73,.15); color:var(--red); }
   .pill.running { background:rgba(227,179,65,.15); color:var(--gold); }
-  canvas { width:100%; height:auto; background:#0a0d12; border-radius:8px; display:block; }
-  .tourmeta { display:flex; justify-content:space-between; color:var(--dim); font-size:11px; margin-top:7px; }
   .legend { color:var(--dim); font-size:11px; line-height:1.9; }
   .legend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
   .hint { color:var(--dim); font-size:11px; margin-top:6px; }
@@ -58,11 +56,6 @@
       <div class="card" id="detailcard">
         <h2>NODE</h2>
         <div id="detail" class="kv"><span class="hint">Hover a node in the graph.</span></div>
-      </div>
-      <div class="card">
-        <h2 id="tourtitle">BEST TOUR</h2>
-        <canvas id="canvas" width="280" height="280"></canvas>
-        <div class="tourmeta"><span id="tourname"></span><span id="tourlen"></span></div>
       </div>
       <div class="card">
         <h2>LEGEND</h2>
@@ -191,19 +184,6 @@ function showDetail(id){
     + `<div class="kv" style="margin-top:7px;color:var(--fg)">${esc(n.label)}</div>`;
 }
 
-function drawTour(t){
-  const c = $("canvas"), ctx = c.getContext("2d"); ctx.clearRect(0,0,c.width,c.height);
-  if(!t||!t.cities||!t.cities.length){ $("tourname").textContent=""; $("tourlen").textContent=""; return; }
-  const pad=18, W=c.width-2*pad, H=c.height-2*pad, xs=t.cities.map(p=>p[0]), ys=t.cities.map(p=>p[1]);
-  const mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
-  const sx=v=>pad+(mxx>mnx?(v-mnx)/(mxx-mnx):.5)*W, sy=v=>pad+(mxy>mny?(v-mny)/(mxy-mny):.5)*H;
-  ctx.strokeStyle="#3fb950"; ctx.lineWidth=1.4; ctx.beginPath();
-  t.order.forEach((idx,k)=>{const p=t.cities[idx],X=sx(p[0]),Y=sy(p[1]); k?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});
-  const f=t.cities[t.order[0]]; ctx.lineTo(sx(f[0]),sy(f[1])); ctx.stroke();
-  t.cities.forEach(p=>{ctx.fillStyle="#58a6ff";ctx.beginPath();ctx.arc(sx(p[0]),sy(p[1]),2.5,0,7);ctx.fill();});
-  $("tourname").textContent="instance: "+(t.name||""); $("tourlen").textContent="length: "+(t.length?t.length.toFixed(1):"");
-}
-
 $("graphwrap").addEventListener("mouseover", e => {
   const g = e.target.closest("[data-id]"); if (g) showDetail(g.dataset.id);
 });
@@ -216,7 +196,6 @@ async function tick(){
     $("best").textContent = (s.empty||s.best_improvement_pct==null) ? "—"
         : (s.best_improvement_pct>0?"+":"")+Number(s.best_improvement_pct).toFixed(2)+"%";
     render(s);
-    drawTour(s.best_tour);
     // keep the best node's details showing by default
     const best = (s.nodes||[]).find(n=>n.is_best);
     if (best && best.id!==lastBest){ showDetail(best.id); lastBest=best.id; }
