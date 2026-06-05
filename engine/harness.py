@@ -33,12 +33,25 @@ def is_valid_tour(order, n) -> bool:
     return len(order) == n and sorted(order) == list(range(n))
 
 
+def load_solve(path):
+    """Load a ``solve`` function from a .py file by exec'ing its source.
+
+    We deliberately do NOT ``import`` the candidate. Python validates a module's
+    cached bytecode by (mtime, size); the loops rewrite solution.py many times a
+    second, and edits like ``PARAM = 2`` -> ``PARAM = 3`` leave the size unchanged,
+    so two writes in the same mtime tick would make ``import`` reuse a stale .pyc
+    and score the wrong code. Exec'ing the source each time sidesteps the import
+    cache entirely and keeps evaluation deterministic.
+    """
+    ns: dict = {}
+    exec(compile(Path(path).read_text(encoding="utf-8"), str(path), "exec"), ns)
+    return ns["solve"]
+
+
 def _baseline_solve():
     """Load the gold-master solver from the template file (single source of truth
     for the reference, so it can never drift from the file the run starts from)."""
-    ns: dict = {}
-    exec(compile(_TEMPLATE.read_text(), str(_TEMPLATE), "exec"), ns)
-    return ns["solve"]
+    return load_solve(_TEMPLATE)
 
 
 # Reference baseline lengths, computed once per process.

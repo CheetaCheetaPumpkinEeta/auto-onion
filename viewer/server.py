@@ -43,5 +43,5 @@ def state():
 
 
 if __name__ == "__main__":
-    print("frontier-loop viewer  ->  http://localhost:5005")
+    print("auto-onion viewer  ->  http://localhost:5005")
     app.run(host="127.0.0.1", port=5005, debug=False)

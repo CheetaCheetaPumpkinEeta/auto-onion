@@ -1,15 +1,18 @@
-# frontier-loop
+# auto-onion
 
 **A self-improving code search: two nested loops where an LLM rewrites its own
 solver, keeps what works, and climbs a benchmark — no human in the loop.**
 
-*CS 153 — The One-Person Frontier Lab.* `frontier-loop` is a minimal, from-scratch
+> *The name:* the search is layered like an onion — an inner loop tunes a solver,
+> an outer loop peels up to a new architecture and judges it by its tuned core.
+
+*CS 153 — The One-Person Frontier Lab.* `auto-onion` is a minimal, from-scratch
 distillation of the two-tier optimization engine from my larger research project,
 [omnididdy](#acknowledgements--citations). It strips that system down to its
 essential mechanism so the idea is legible in ~700 lines of pure-Python you can
 read in one sitting and run with zero API keys.
 
-https://github.com/USER/frontier-loop  ·  demo video: *(link)*
+https://github.com/CheetaCheetaPumpkinEeta/auto-onion  ·  demo video: *(link)*
 
 ---
 
@@ -122,22 +125,25 @@ The **engine has no dependencies** — `python run.py --mock` runs on a bare Pyt
 ```
 [L2 cycle 0] baseline installed  ->  +0.00%   (tuning...)
     [L1 1/4]  +0.00%  reverted  baseline nearest-neighbour      <- gate correctly rejects a no-op
-[L2 cycle 1] proposed: nearest-neighbour refined by 2-opt
-    [L1 1/4] +14.45%  kept      tuned PARAM to 2                 <- L1 tunes the new architecture
-    [L1 2/4] +14.45%  reverted  tuned PARAM to 3                 <- and stops when it plateaus
-[L2 cycle 1] ceiling +14.45%  ->  KEPT (new best)
+[L2 cycle 1] proposed: nearest-neighbour construction refined by 2-opt
+    [L1 1/4] +14.45%  kept      tuned PARAM to 2                 <- L1 tunes the new architecture up...
+    [L1 2/4] +15.00%  kept      tuned PARAM to 3
+    [L1 3/4] +15.00%  reverted  tuned PARAM to 4                 <- ...and reverts once it converges
+[L2 cycle 1] ceiling +15.00%  ->  KEPT (new best)
 [L2 cycle 2] proposed: NN + 2-opt + or-opt
 [L2 cycle 2] ceiling +15.19%  ->  KEPT (new best)
 [L2 cycle 3] proposed: multi-start NN + 2-opt + or-opt
-[L2 cycle 3] ceiling +16.61%  ->  KEPT (new best)
+    [L1 1/4] +16.61%  kept      tuned PARAM to 2
+    [L1 2/4] +17.07%  kept      tuned PARAM to 3
+[L2 cycle 3] ceiling +17.07%  ->  KEPT (new best)
 
-DONE.  best improvement over baseline: +16.61%
+DONE.  best improvement over baseline: +17.07%
 winning architecture: multi-start NN + 2-opt + or-opt, keep the best tour over restarts
 ```
 
 The outer loop discovered a clear ladder of *shapes* — construction → local search
 → metaheuristic — each one tuned to its ceiling before being compared, ending
-**16.6 % shorter** than the nearest-neighbour baseline. The viewer renders this as
+**17.1 % shorter** than the nearest-neighbour baseline. The viewer renders this as
 a tree (green = kept, red = reverted) next to a live drawing of the best tour.
 
 ---
@@ -173,7 +179,8 @@ runs/<timestamp>/               per-run state.json + results.tsv
 ## 6. Evaluation & evidence
 
 - **It works end-to-end, reproducibly.** `python run.py --mock` is deterministic
-  (seeded instances, scripted edits) and reaches **+16.61 %** every time on any
+  (seeded instances, scripted edits, source-exec'd evaluation) and reaches
+  **+17.07 %** every time on any
   machine — so the claim "the two loops find and keep real improvements" is
   verifiable in 20 seconds without an API key.
 - **The gates are real, not cosmetic.** The trace shows the ground loop *reverting*
@@ -209,7 +216,7 @@ intentionally drops, most importantly **memory**: omnididdy keeps a
 diversity-preserving *archive* of every architecture tried (kept **and** rejected),
 samples the best + most-divergent "stepping stones" back into each prompt, scores
 proposals for novelty, and manages all of it across a **branching tree** of edits.
-`frontier-loop` keeps only a flat history and greedily follows a single trunk —
+`auto-onion` keeps only a flat history and greedily follows a single trunk —
 exactly "two layers of keep-or-revert search," no more. The clean separation here
 (frozen harness vs editable solution, provider-neutral LLM interface) is the same
 contract omnididdy uses, kept deliberately small.
@@ -232,7 +239,7 @@ and the choice of what to trim from the parent project are my own.
 ## 9. Acknowledgements & citations
 
 - **omnididdy** — my larger research project, from which this distills the two-tier
-  loop. `frontier-loop` is a clean, minimal **rewrite** (no code copied) focused on
+  loop. `auto-onion` is a clean, minimal **rewrite** (no code copied) focused on
   the core mechanism. The "frozen harness + editable solution" contract, the
   provider-neutral LLM boundary, and the L1/L2 split all originate there.
 - **Karpathy-style autonomous research** — the inner keep-or-revert loop that reads

@@ -1,4 +1,4 @@
-"""frontier-loop entry point.
+"""auto-onion entry point.
 
 Runs the two-loop self-improving code search over the TSP substrate.
 
@@ -23,7 +23,7 @@ TASK_LABEL = "Travelling Salesman - mean tour length vs nearest-neighbour baseli
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Two-loop self-improving code search (frontier-loop).")
+    ap = argparse.ArgumentParser(description="Two-loop self-improving code search (auto-onion).")
     ap.add_argument("--mock", action="store_true",
                     help="run offline with scripted edits (no API key, fully reproducible)")
     ap.add_argument("--cycles", type=int, default=3, help="number of L2 architecture cycles")
@@ -48,7 +48,7 @@ def main() -> None:
     recorder = Recorder(run_dir, TASK_LABEL)
 
     print("=" * 72)
-    print(f"frontier-loop  |  mode: {mode}")
+    print(f"auto-onion  |  mode: {mode}")
     print(f"task: {TASK_LABEL}")
     print(f"budget: {args.cycles} architecture cycles x {args.l1_iters} refinement iters")
     print(f"run dir: {run_dir}")
