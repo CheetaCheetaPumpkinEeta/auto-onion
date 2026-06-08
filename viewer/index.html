@@ -26,6 +26,10 @@
   header .tbtn:disabled { opacity:.55; cursor:default; }
   .dlabel { color:var(--dim); font-size:10px; text-transform:uppercase; letter-spacing:.6px; margin:11px 0 3px; }
   .dval { font-size:12.5px; line-height:1.55; color:var(--fg); white-space:pre-wrap; word-break:break-word; }
+  header .phase { font-size:11.5px; color:var(--blue); display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  header .phase.idle { display:none; }
+  header .phase::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--blue); animation:opulse 1.1s ease-in-out infinite; }
+  @keyframes opulse { 0%,100%{opacity:.25; transform:scale(.75);} 50%{opacity:1; transform:scale(1.15);} }
   header .best { margin-left:auto; font-size:12px; color:var(--dim); }
   header .best b { color:var(--green); font-size:20px; }
   main { display:grid; grid-template-columns: 1fr 380px; height:calc(100vh - 46px); }
@@ -83,6 +87,7 @@
     <button id="btninfo" class="tbtn" title="how the two-loop system works + project write-up">ℹ How it works</button>
     <select id="runpick" title="choose a run to view"></select>
     <span class="sub" id="task">loading…</span>
+    <span class="phase idle" id="phase" title="what the engine is doing right now"></span>
     <div class="best">best&nbsp; <b id="best">—</b> vs baseline</div>
   </header>
   <main>
@@ -463,6 +468,8 @@ async function tick(){
     const s = await (await fetch("/api/state?run=" + encodeURIComponent(currentRun))).json();
     $("task").textContent = s.task || "";
     $("best").textContent = (s.best_improvement_pct==null||s.empty) ? "—" : (s.best_improvement_pct>0?"+":"")+Number(s.best_improvement_pct).toFixed(2)+"%";
+    const ph = (s.status==="running" && s.phase) ? s.phase : "";   // live "what's it doing now" badge
+    const pe = $("phase"); pe.textContent = ph; pe.classList.toggle("idle", !ph);
     if (!s.tree){ return; }
     lastTree = s.tree;
     render(s.tree);

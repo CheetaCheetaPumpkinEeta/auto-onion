@@ -50,6 +50,9 @@ def run_second_loop(l2_client, l1_client, l2_system, l1_system, cycles, l1_iters
     # ---- cycles 1..N: propose a new architecture, tune it, compare ceilings ----
     for c in range(1, cycles + 1):
         user = _build_user(recorder, incumbent_code)
+        # The proposer call has no node yet and can take a while (the model writes a
+        # whole solver) — announce it so the dashboard doesn't look frozen in the gap.
+        recorder.set_phase(f"second loop proposing architecture {c}…")
         arch_code = extract_code(l2_client.complete(l2_system, user, kind="l2"))
         SOLUTION.write_text(arch_code, encoding="utf-8")
         install_fit, install_detail, _ = evaluate()

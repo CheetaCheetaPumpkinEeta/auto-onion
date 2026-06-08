@@ -51,6 +51,7 @@ class Recorder:
         self.state = {
             "task": task_label,
             "status": "running",
+            "phase": "starting…",   # human-readable "what's happening right now" for the header
             "metric_name": METRIC_NAME,
             "metric_format": METRIC_FORMAT,
             "metric_direction": METRIC_DIRECTION,
@@ -62,6 +63,12 @@ class Recorder:
         self._flush()
 
     # ---- mutation -------------------------------------------------------
+    def set_phase(self, phase: str) -> None:
+        """Record what the engine is doing right now (e.g. the L2 proposer call,
+        which has no node yet, so the header stays alive during the gap)."""
+        self.state["phase"] = phase
+        self._flush()
+
     def start_architecture(self, cycle: int, name: str, code: str, l1_budget: int | None = None) -> None:
         self.state["architectures"].append(
             {
@@ -75,6 +82,8 @@ class Recorder:
                 "experiments": [],
             }
         )
+        label = "baseline" if cycle == 0 else f"architecture {cycle}"
+        self.state["phase"] = f"ground loop tuning {label}…"
         self._flush()
 
     def add_experiment(self, cycle: int, iteration: int, fitness: float, status: str,
@@ -101,6 +110,7 @@ class Recorder:
 
     def done(self) -> None:
         self.state["status"] = "done"
+        self.state["phase"] = None
         self._flush()
 
     # ---- prompt history -------------------------------------------------
