@@ -84,7 +84,10 @@ class ClaudeCLIClient(LLMClient):
         prompt = f"{system}\n\n---\n\n{user}"
         # --disallowedTools forces a pure text reply (no agentic file writes that
         # would leave stdout empty). Retry once on an empty reply.
-        cmd = (f"claude --print --model {self.model} "
+        # --strict-mcp-config: do NOT load the user's MCP servers (each call would
+        # otherwise spawn node MCP-server processes that never get reaped — they
+        # pile up and stall a long unattended run). --disallowedTools: pure text out.
+        cmd = (f"claude --print --model {self.model} --strict-mcp-config "
                '--disallowedTools "Write,Edit,MultiEdit,Bash,Read,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit,TodoWrite"')
         for _ in range(2):
             try:
