@@ -40,6 +40,17 @@ def _order_key(d: Path):
 
 
 def _default_run(dirs: list[Path]) -> Path | None:
+    # If a real run is actively building, default to it so a live run shows up
+    # immediately; otherwise a demo (already-run tree) for graders/reviewers.
+    now = time.time()
+    for d in sorted((x for x in dirs if not x.name.startswith("demo-")),
+                    key=lambda x: -os.path.getmtime(x / "state.json")):
+        try:
+            st = json.loads((d / "state.json").read_text(encoding="utf-8"))
+            if st.get("status") == "running" and now - os.path.getmtime(d / "state.json") < 1800:
+                return d
+        except Exception:
+            pass
     return sorted(dirs, key=_order_key)[0] if dirs else None
 
 
@@ -89,14 +100,19 @@ def state():
 
 @app.route("/api/run", methods=["POST"])
 def run():
-    """Launch a simple two-loop run (offline mock TSP) in the background and
-    return its run name so the page can follow it live."""
+    """Actually run the two loops live with real LLMs — a bigger model (L2)
+    makes the architectural changes, a smaller model (L1) tunes the parameters.
+    Uses the local ``claude`` CLI (your Claude Code login; no API key needed).
+    Runs in the background; the page follows the tree as it builds."""
     body = request.get_json(silent=True) or {}
     name = "run-" + time.strftime("%Y%m%d-%H%M%S")
-    cmd = [sys.executable, str(REPO / "run.py"), "--mock",
+    cmd = [sys.executable, str(REPO / "run.py"),
+           "--l2-model", body.get("l2_model", "sonnet"),   # bigger model: architecture (L2)
+           "--l1-model", body.get("l1_model", "haiku"),    # smaller model: tuning (L1)
+           "--backend", "cli",
            "--run-dir", f"runs/{name}",
            "--cycles", str(int(body.get("cycles", 3))),
-           "--l1-iters", str(int(body.get("l1_iters", 4)))]
+           "--l1-iters", str(int(body.get("l1_iters", 2)))]
     subprocess.Popen(cmd, cwd=str(REPO),
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return jsonify({"run": name})

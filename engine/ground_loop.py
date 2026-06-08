@@ -27,8 +27,18 @@ def reset_solution_to_baseline() -> None:
 
 
 def hypothesis_of(code: str) -> str:
-    first = code.strip().splitlines()[0] if code.strip() else ""
-    return first.replace("# HYPOTHESIS:", "").strip() if "HYPOTHESIS" in first else "(no hypothesis)"
+    # Prefer an explicit "# HYPOTHESIS:" comment anywhere in the file (the
+    # proposer is asked to put it first but real models don't always comply),
+    # then fall back to the first descriptive comment line.
+    for line in code.splitlines():
+        s = line.strip()
+        if s.startswith("#") and "HYPOTHESIS:" in s:
+            return s.split("HYPOTHESIS:", 1)[1].strip() or "(architecture)"
+    for line in code.splitlines():
+        s = line.strip()
+        if s.startswith("#") and len(s) > 3 and "coding:" not in s and "!/usr" not in s:
+            return s.lstrip("# ").strip()[:120]
+    return "(architecture)"
 
 
 def evaluate(timeout: int = 60):
