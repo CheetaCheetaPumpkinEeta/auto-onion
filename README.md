@@ -7,10 +7,8 @@ solver, keeps what works, and climbs a benchmark — no human in the loop.**
 > an outer loop peels up to a new architecture and judges it by its tuned core.
 
 *CS 153 — The One-Person Frontier Lab.* `auto-onion` is a minimal, from-scratch
-distillation of the two-tier optimization engine from my larger research project,
-[omnididdy](#acknowledgements--citations). It strips that system down to its
-essential mechanism so the idea is legible in ~700 lines of pure-Python you can
-read in one sitting and run with zero API keys.
+two-tier optimization engine, built to make the core idea legible in ~700 lines of
+pure-Python you can read in one sitting and run with zero API keys.
 
 https://github.com/CheetaCheetaPumpkinEeta/auto-onion
 
@@ -105,7 +103,7 @@ pip install flask
 python viewer/server.py        # -> http://localhost:5005
 ```
 
-Open it: an **omnididdy-style lineage tree** with two buttons —
+Open it: a **lineage tree** with these buttons —
 
 - **★ Demo (pre-run tree)** — loads an **already-finished** run instantly, for
   graders/reviewers (no computation). Bundled: **set-cover** (+55%) and **max-cut**;
@@ -120,7 +118,7 @@ Open it: an **omnididdy-style lineage tree** with two buttons —
 
 Click any node → its **hypothesis and result** (kept/reverted, score, % vs baseline),
 and for an architecture, its **ground-loop budget and completeness** (tuning iters
-spent of the budget — the same per-run progress omnididdy surfaces).
+spent of the budget).
 
 **Or skip the dashboard** and run the engine offline on TSP — deterministic, zero setup:
 
@@ -181,10 +179,10 @@ baseline (greedy)        26.29% gap
 → tabu search            15.28%   reverted (its tuned ceiling didn't beat the incumbent)
 ```
 
-That run was produced by the **parent engine, omnididdy** (the larger system
-auto-onion is a trimmed reimplementation of), and imported into auto-onion's
-viewer format by [`scripts/import_run.py`](scripts/import_run.py) — which reads the
-run's plain JSON/TSV artifacts directly, with no dependency on the parent project.
+That run was generated separately (the engine is benchmark-agnostic) and imported
+into auto-onion's viewer format by [`scripts/import_run.py`](scripts/import_run.py)
+— which reads the run's plain JSON/TSV artifacts directly. It is genuine engine
+output, **not** a product of this repo's `run.py --mock` (which runs TSP).
 A second demo, **max-cut**, is bundled too (switch via the dashboard's run-picker).
 Click any node to see the hypothesis it tried and its result. Disclosed in §8.
 
@@ -251,22 +249,22 @@ scripted code in this repo.
 backtracking — see §7). The mock ladder is short by design, so offline mode
 demonstrates the mechanism rather than open-ended discovery; real exploration
 needs live mode. TSP is a friendly substrate (cheap, deterministic) — noisier or
-slower objectives would need replay/variance handling that this trimmed version
-omits.
+slower objectives would need replay/variance handling that this version
+deliberately omits.
 
 ---
 
-## 7. What's deliberately left out (and where it lives)
+## 7. What's deliberately left out
 
-This is a **trimmed** version. Its parent, omnididdy, adds the machinery this one
-intentionally drops, most importantly **memory**: omnididdy keeps a
-diversity-preserving *archive* of every architecture tried (kept **and** rejected),
-samples the best + most-divergent "stepping stones" back into each prompt, scores
-proposals for novelty, and manages all of it across a **branching tree** of edits.
-`auto-onion` keeps only a flat history and greedily follows a single trunk —
-exactly "two layers of keep-or-revert search," no more. The clean separation here
-(frozen harness vs editable solution, provider-neutral LLM interface) is the same
-contract omnididdy uses, kept deliberately small.
+This is a deliberately minimal engine — the core mechanism, nothing more. The biggest
+thing it omits is **memory**. A fuller version would keep a diversity-preserving
+*archive* of every architecture tried (kept **and** rejected), sample the best +
+most-divergent "stepping stones" back into each prompt, score proposals for novelty,
+and manage all of it across a **branching tree** of edits. `auto-onion` keeps only a
+flat history and greedily follows a single trunk — exactly "two layers of
+keep-or-revert search," no more. The clean separation it *does* keep (frozen harness
+vs editable solution, provider-neutral LLM interface) is what makes those extensions
+straightforward to add later.
 
 ---
 
@@ -279,14 +277,14 @@ Code (Claude Opus 4.x)** wrote much of the code under that direction. The system
 *also* uses Claude at **runtime** as the proposer in live mode (`--` without
 `--mock`). The offline `--mock` mode contains no AI calls — it's scripted Python so
 the project is reproducible without credentials. All design decisions, limitations,
-and the choice of what to trim from the parent project are my own.
+and the choice of what to include or leave out are my own.
 
 **On the bundled `runs/demo-*` data (set-cover, max-cut):** those sample runs were
-*not* produced by running auto-onion (whose own runnable substrate is TSP). They are
-**real output from the parent engine (omnididdy)** on the set-cover and max-cut
-benchmarks, imported into auto-onion's viewer format via `scripts/import_run.py` so
-the dashboard can show the engine working on non-toy problems. Genuine engine output,
-clearly labelled as such. auto-onion's own from-scratch reproducible run is
+*not* produced by this repo's `run.py --mock` (whose runnable substrate is TSP). They
+are **real two-loop runs** on the set-cover and max-cut benchmarks, generated
+separately and imported into auto-onion's viewer format via `scripts/import_run.py`
+so the dashboard can show the engine working on non-toy problems — genuine engine
+output, clearly labelled as such. auto-onion's own from-scratch reproducible run is
 `python run.py --mock`; its **▶ Run the system** button genuinely executes the two
 loops with real models (Sonnet + Haiku) via your Claude CLI.
 
@@ -294,10 +292,6 @@ loops with real models (Sonnet + Haiku) via your Claude CLI.
 
 ## 9. Acknowledgements & citations
 
-- **omnididdy** — my larger research project, from which this distills the two-tier
-  loop. `auto-onion` is a clean, minimal **rewrite** (no code copied) focused on
-  the core mechanism. The "frozen harness + editable solution" contract, the
-  provider-neutral LLM boundary, and the L1/L2 split all originate there.
 - **Karpathy-style autonomous research** — the inner keep-or-revert loop that reads
   a flat experiment log and decides what to try next is modelled on Andrej
   Karpathy's description of autonomous-research loops.

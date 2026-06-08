@@ -7,8 +7,8 @@ and greedily kept only if that ceiling beats the incumbent's. This is the whole
 idea in one line: *the second layer compares optimized versions.*
 
 No memory beyond the flat history table: reverted architectures are dropped, not
-archived. (The parent project, omnididdy, keeps a diversity-preserving archive;
-this trimmed version deliberately does not — see the README.)
+archived. (A fuller version would keep a diversity-preserving archive; this minimal
+version deliberately does not — see the README.)
 """
 from __future__ import annotations
 

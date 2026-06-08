@@ -2,15 +2,14 @@
 
 Owns the on-disk state for a run:
 * ``state.json`` — the live snapshot the viewer polls. Besides the flat
-  architecture/experiment records it carries a ``tree``: the same hierarchical
-  shape the parent project (omnididdy) feeds its dashboard —
+  architecture/experiment records it carries a ``tree``: a hierarchical shape —
   ``origin → benchmark → second_loop → run → ground_container → ground_experiment`` —
-  so the viewer can render an identical d3 lineage graph. Every node carries the
-  full code block that produced it.
+  so the viewer can render a d3 lineage graph. Every node carries the full code
+  block that produced it.
 * ``results.tsv`` — a flat, Karpathy-style log: one row per experiment, ever.
 
 It also renders the small history tables fed back into the proposer prompts —
-the only "memory" this trimmed-down system has is this flat log.
+the only "memory" this system has is this flat log.
 """
 from __future__ import annotations
 
@@ -129,7 +128,7 @@ class Recorder:
             rows.append(f"{a['cycle']:>5}  {imp:>19}  {a['status']:<9}  {a['name']}")
         return "\n".join(rows)
 
-    # ---- lineage tree (omnididdy-shaped) --------------------------------
+    # ---- lineage tree ---------------------------------------------------
     def _experiment_nodes(self, arch: dict) -> list[dict]:
         """Build the ground_experiment lineage for one architecture: the install
         node (iter 0) is the root; each refinement parents to the best node so

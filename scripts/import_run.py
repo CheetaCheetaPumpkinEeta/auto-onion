@@ -1,11 +1,10 @@
 """Import a real two-loop run into an auto-onion viewer ``state.json``.
 
 auto-onion's bundled runnable benchmark is TSP (``python run.py --mock``). The
-*engine* — the two nested loops — is benchmark-agnostic, and it's a faithful,
-trimmed reimplementation of a larger research system (omnididdy). This script
-lets the viewer display a **real** run of that engine on a harder benchmark by
-reading the run's on-disk artifacts directly (plain JSON / TSV — no dependency on
-the parent project) and emitting auto-onion's hierarchical ``state.json`` tree:
+*engine* — the two nested loops — is benchmark-agnostic. This script lets the
+viewer display a **real** run of the engine on a harder benchmark by reading the
+run's on-disk artifacts directly (plain JSON / TSV) and emitting auto-onion's
+hierarchical ``state.json`` tree:
 
     origin -> benchmark -> second_loop -> run (architecture) -> ground_container
               -> ground_experiment (parameter-tuning step)
@@ -206,7 +205,7 @@ def main() -> None:
     state = {
         "task": task, "status": "done", "metric_format": args.metric_format, "metric_direction": "minimize",
         "best_fitness": best_overall, "best_improvement_pct": best_pct,
-        "source": f"real run imported from {bench.name} (parent engine, omnididdy)",
+        "source": f"real run imported from {bench.name}",
         "tree": tree,
     }
     out_dir = (HERE / args.out) if not Path(args.out).is_absolute() else Path(args.out)

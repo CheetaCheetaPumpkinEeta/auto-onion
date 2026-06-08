@@ -69,9 +69,8 @@ class AnthropicClient(LLMClient):
 class ClaudeCLIClient(LLMClient):
     """Live mode through the local ``claude`` CLI (Claude Code).
 
-    Uses your existing Claude Code login, so no ANTHROPIC_API_KEY is required —
-    this is how the parent project (omnididdy) drives Claude. The CLI runs in
-    print mode from an empty temp directory, so it behaves as a pure code
+    Uses your existing Claude Code login, so no ANTHROPIC_API_KEY is required.
+    The CLI runs in print mode with tools disabled, so it behaves as a pure code
     generator with no project context or filesystem detours.
     """
 

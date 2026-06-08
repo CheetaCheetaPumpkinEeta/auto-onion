@@ -5,7 +5,7 @@
   "metric_direction": "minimize",
   "best_fitness": 39.0819,
   "best_improvement_pct": 3.79,
-  "source": "real run imported from max-cut (parent engine, omnididdy)",
+  "source": "real run imported from max-cut",
   "tree": {
     "name": "origin",
     "type": "origin",

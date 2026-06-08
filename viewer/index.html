@@ -116,10 +116,9 @@
     <button class="iclose" id="iclose" title="close">✕</button>
     <div class="iwrap">
       <h1>auto-<span style="color:#bf8700">onion</span> — how it works</h1>
-      <p>A bare-bones, memory-free distillation of my larger project <b>omnididdy</b>:
-         a self-improving code-search engine that climbs a benchmark by having
-         <b>two LLM loops edit one file</b>, scored by a frozen harness they can't touch.
-         The layered loops are why it's an "onion."</p>
+      <p>A bare-bones, memory-free <b>self-improving code-search engine</b> that climbs
+         a benchmark by having <b>two LLM loops edit one file</b>, scored by a frozen
+         harness they can't touch. The layered loops are why it's an "onion."</p>
 
       <h2>THE SYSTEM · ONE EDIT SURFACE, TWO LOOPS</h2>
       <div class="diagram">
@@ -152,7 +151,7 @@
       </div>
 
       <h2>READING THE GRAPH</h2>
-      <p>Left-to-right lineage, exactly like omnididdy: <b>origin → benchmark → second
+      <p>Left-to-right lineage: <b>origin → benchmark → second
          loop → architecture (▶) → ground loop → experiments (●)</b>.
          <span style="color:#1a7f37">Green</span> = kept,
          <span style="color:#cf222e">red</span> = reverted,
@@ -182,9 +181,9 @@
       <p><b>Reproducible:</b> <code>python run.py --mock</code> is deterministic —
          <b>+17.07%</b> every run, zero API calls (I caught and fixed a real stale-bytecode
          nondeterminism bug getting there). <b>Real runs:</b> the set-cover / max-cut demos
-         are genuine engine output imported from the parent project, disclosed in the README.
+         are genuine two-loop runs imported via scripts/import_run.py, disclosed in the README.
          <b>Honest limits:</b> the search is greedy with no long-term memory, and the
-         hard-benchmark trees were produced by the parent engine and imported.</p>
+         hard-benchmark trees were generated separately and imported (not produced by run.py).</p>
 
       <h2>Q3 · USE CASES / IMPACT</h2>
       <p>Anything with a <b>fitness signal</b>: solvers, heuristics, ML-training code, GPU
@@ -199,8 +198,8 @@
 
       <h2>DISCLOSURE &amp; CREDIT</h2>
       <p>Built with <b>disclosed</b> AI assistance (Claude Code). The offline demo has
-         <b>zero AI calls</b>, so it's fully reproducible. auto-onion is a clean, trimmed
-         reimplementation of my larger project <b>omnididdy</b>, cited throughout.</p>
+         <b>zero AI calls</b>, so it's fully reproducible. All design decisions — the
+         two-loop architecture, the TSP substrate, the fitness/gating scheme — are my own.</p>
     </div>
   </div>
 
@@ -219,7 +218,7 @@ let activeGroundIds = new Set();   // ground containers under a running architec
 let currentRun = "";               // which run dir the viewer is showing
 
 function idOf(d){ return d.data.id || (d.data.type+"/"+d.data.name); }
-// Collapse like omnididdy: any container node retracts on click. The `ground`
+// Collapse: any container node retracts on click. The `ground`
 // container of L1 experiments is collapsed by default EXCEPT under the
 // in-progress architecture, so you watch the live tuning build.
 function canCollapse(n){ return !!(n.children && n.children.length) && n.type!=="ground_experiment"; }
@@ -323,7 +322,7 @@ function render(tree){
   const nodes = root.descendants(), links = root.links();
   const X = d => d.y, Y = d => d.x;   // horizontal: depth->x, sibling->y
 
-  // links (curved, left-to-right — horizontal like omnididdy)
+  // links (curved, left-to-right — horizontal layout)
   const link = d3.linkHorizontal().x(d=>d.y).y(d=>d.x);
   const lsel = gLinks.selectAll("path").data(links, d=>d.target.data.id || (d.target.data.type+d.target.data.name));
   lsel.join(
@@ -428,7 +427,7 @@ function levelOf(d){
   return t;
 }
 
-// omnididdy-style per-run budget + completeness (runs / ground containers carry it)
+// per-run budget + completeness (runs / ground containers carry it)
 function budgetBlock(n){
   const total = n.total_experiments;
   if (n.l1_budget!=null){            // native run: known refinement budget -> live bar

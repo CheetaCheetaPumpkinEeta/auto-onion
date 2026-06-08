@@ -5,7 +5,7 @@
   "metric_direction": "minimize",
   "best_fitness": 11.7855,
   "best_improvement_pct": 55.17,
-  "source": "real run imported from set-cover (parent engine, omnididdy)",
+  "source": "real run imported from set-cover",
   "tree": {
     "name": "origin",
     "type": "origin",
