@@ -12,7 +12,7 @@ distillation of the two-tier optimization engine from my larger research project
 essential mechanism so the idea is legible in ~700 lines of pure-Python you can
 read in one sitting and run with zero API keys.
 
-https://github.com/CheetaCheetaPumpkinEeta/auto-onion  ·  demo video: *(link)*
+https://github.com/CheetaCheetaPumpkinEeta/auto-onion
 
 ---
 

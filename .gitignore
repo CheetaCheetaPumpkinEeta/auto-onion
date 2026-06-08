@@ -11,3 +11,6 @@ runs/*
 # ...except the committed sample runs (real engine output, shown in the viewer's run-picker).
 !runs/demo-*/
 !runs/demo-*/**
+
+# Personal video-recording notes — not part of the submission (kept locally, untracked).
+VIDEO_SCRIPT.md
