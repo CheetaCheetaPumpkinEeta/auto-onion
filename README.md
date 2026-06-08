@@ -114,8 +114,13 @@ Open it: an **omnididdy-style lineage tree** with two buttons —
   (Sonnet) proposes architectures, a smaller model (Haiku) tunes, driven by your
   local `claude` CLI — **no API key needed**. The tree builds in front of you
   (allow ~5–8 min; Sonnet writes a whole solver per architecture).
+- **ℹ How it works** — an in-app write-up: a diagram of the two-loop system, why a
+  single autoresearch loop plateaus, and the project's design questions (Q1–Q4)
+  answered for graders without leaving the page.
 
-Click any node → its **hypothesis and result** (kept/reverted, score, % vs baseline).
+Click any node → its **hypothesis and result** (kept/reverted, score, % vs baseline),
+and for an architecture, its **ground-loop budget and completeness** (tuning iters
+spent of the budget — the same per-run progress omnididdy surfaces).
 
 **Or skip the dashboard** and run the engine offline on TSP — deterministic, zero setup:
 

@@ -7,6 +7,10 @@
 > Format below: the **requirement** (what the video must cover, from the rubric),
 > then **what to say** (bullets), with `[SHOW …]` cues for the live demo. Repo link
 > is at the end.
+>
+> **On-camera safety net:** the dashboard's **ℹ How it works** button shows the same
+> diagram + Q1–Q4 answers on-screen — open it if you want the talking points visible
+> while you record. Everything below maps 1:1 to that page.
 
 ---
 

@@ -36,7 +36,7 @@ def run_second_loop(l2_client, l1_client, l2_system, l1_system, cycles, l1_iters
     # ---- cycle 0: the baseline, tuned, as the starting incumbent ----
     reset_solution_to_baseline()
     base_fit, base_detail, _ = evaluate()
-    recorder.start_architecture(0, "baseline (nearest-neighbour)", code=SOLUTION.read_text(encoding="utf-8"))
+    recorder.start_architecture(0, "baseline (nearest-neighbour)", code=SOLUTION.read_text(encoding="utf-8"), l1_budget=l1_iters)
     if verbose:
         print(f"[L2 cycle 0] baseline installed  ->  {(1 - base_fit) * 100:+.2f}%   (tuning...)")
     incumbent_fit, incumbent_code, _ = run_ground_loop(
@@ -54,7 +54,7 @@ def run_second_loop(l2_client, l1_client, l2_system, l1_system, cycles, l1_iters
         SOLUTION.write_text(arch_code, encoding="utf-8")
         install_fit, install_detail, _ = evaluate()
         name = hypothesis_of(arch_code)
-        recorder.start_architecture(c, name, code=arch_code)
+        recorder.start_architecture(c, name, code=arch_code, l1_budget=l1_iters)
         if verbose:
             shown = "fail" if install_fit == float("inf") else f"{(1 - install_fit) * 100:+.2f}%"
             print(f"[L2 cycle {c}] proposed: {name}\n             install -> {shown}   (tuning...)")

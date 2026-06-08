@@ -135,5 +135,10 @@ def run():
 
 
 if __name__ == "__main__":
-    print("auto-onion dashboard  ->  http://localhost:5005")
-    app.run(host="127.0.0.1", port=5005, debug=False)
+    import argparse
+
+    ap = argparse.ArgumentParser(description="auto-onion dashboard server")
+    ap.add_argument("--port", type=int, default=5005, help="port to serve on (default 5005)")
+    a = ap.parse_args()
+    print(f"auto-onion dashboard  ->  http://localhost:{a.port}")
+    app.run(host="127.0.0.1", port=a.port, debug=False)

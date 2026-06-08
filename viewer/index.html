@@ -52,8 +52,27 @@
   pre.code { background:#f6f8fa; border:1px solid var(--line); border-radius:8px; padding:10px;
              font-size:11px; line-height:1.5; overflow:auto; max-height:46vh; color:#1f2328; white-space:pre; }
   .hint { color:var(--dim); font-size:11px; }
+  .bar { height:7px; background:var(--line); border-radius:5px; overflow:hidden; margin:6px 0 2px; }
+  .bar span { display:block; height:100%; background:var(--green); border-radius:5px; }
   .node text { font-family: ui-monospace, Consolas, monospace; pointer-events:none; }
   .zone-label { fill:var(--dim); font-size:11px; font-weight:600; letter-spacing:1.5px; opacity:.6; }
+  /* info overlay */
+  #infooverlay { position:fixed; inset:0; background:#ffffff; z-index:50; overflow:auto; display:none; padding:26px 24px; }
+  #infooverlay.open { display:block; }
+  .iclose { position:fixed; top:16px; right:22px; cursor:pointer; font-size:20px; color:var(--dim); background:none; border:none; }
+  .iwrap { max-width:840px; margin:0 auto; }
+  .iwrap h1 { font-size:21px; margin:0 0 4px; font-weight:700; }
+  .iwrap h2 { font-size:12px; color:var(--purple); margin:22px 0 7px; letter-spacing:.6px; font-weight:700; }
+  .iwrap p { font-size:13px; line-height:1.65; color:#30363d; margin:0 0 8px; }
+  .diagram { display:flex; flex-direction:column; gap:5px; margin:16px 0 6px; }
+  .dbox { border:1px solid var(--line); border-left-width:4px; border-radius:8px; padding:11px 14px; font-size:13px; background:var(--panel); }
+  .dbox .dh { font-size:11px; font-weight:700; letter-spacing:.4px; margin-bottom:3px; }
+  .dbox.sl { border-left-color:var(--purple); } .dbox.sl .dh { color:var(--purple); }
+  .dbox.gl { border-left-color:var(--teal); }   .dbox.gl .dh { color:var(--teal); }
+  .dbox.keep { border-left-color:var(--green); }
+  .darrow { text-align:center; color:var(--dim); font-size:11px; }
+  .callout { background:#fff8e6; border:1px solid #e8d48b; border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.6; margin:8px 0 4px; color:#30363d; }
+  .iwrap code { background:var(--panel); padding:1px 5px; border-radius:4px; font-size:12px; }
 </style>
 </head>
 <body>
@@ -61,6 +80,7 @@
     <h1>auto-<span class="on">onion</span> <span class="sub">dashboard</span></h1>
     <button id="btnrun" class="tbtn run" title="actually run the two loops now (TSP, offline, ~20s) — the tree builds live">▶ Run the system</button>
     <button id="btndemo" class="tbtn" title="view an already-finished run (no computation)">★ Demo (pre-run tree)</button>
+    <button id="btninfo" class="tbtn" title="how the two-loop system works + project write-up">ℹ How it works</button>
     <select id="runpick" title="choose a run to view"></select>
     <span class="sub" id="task">loading…</span>
     <div class="best">best&nbsp; <b id="best">—</b> vs baseline</div>
@@ -86,6 +106,98 @@
       </div>
     </aside>
   </main>
+
+  <div id="infooverlay">
+    <button class="iclose" id="iclose" title="close">✕</button>
+    <div class="iwrap">
+      <h1>auto-<span style="color:#bf8700">onion</span> — how it works</h1>
+      <p>A bare-bones, memory-free distillation of my larger project <b>omnididdy</b>:
+         a self-improving code-search engine that climbs a benchmark by having
+         <b>two LLM loops edit one file</b>, scored by a frozen harness they can't touch.
+         The layered loops are why it's an "onion."</p>
+
+      <h2>THE SYSTEM · ONE EDIT SURFACE, TWO LOOPS</h2>
+      <div class="diagram">
+        <div class="dbox sl">
+          <div class="dh">◆ SECOND LOOP (L2) · bigger model — Sonnet</div>
+          Proposes a <b>structurally new architecture</b> by rewriting <code>solution.py</code>
+          (the edit surface). e.g. greedy → ILP → Lagrangian relaxation.
+        </div>
+        <div class="darrow">↓ &nbsp; hands the new architecture to the inner loop to tune</div>
+        <div class="dbox gl">
+          <div class="dh">● GROUND LOOP (L1) · smaller model — Haiku</div>
+          <b>Tunes the parameters</b> of that architecture over many cheap iterations.
+          Each candidate runs in a sandboxed subprocess; <b>keep-if-better, else revert</b>.
+        </div>
+        <div class="darrow">↓ &nbsp; report the best score reached <i>after</i> tuning</div>
+        <div class="dbox keep">
+          <div class="dh">✓ JUDGE BY THE TUNED CEILING</div>
+          The architecture is kept only if its <b>post-tuning best</b> beats the incumbent.
+          The second loop then builds its next idea on the winner.
+        </div>
+      </div>
+
+      <div class="callout">
+        <b>Why two loops? — the autoresearch pitfall.</b>
+        A <i>single</i> autoresearch loop only nudges parameters, so it plateaus on the
+        very first architecture it's given. auto-onion's second loop makes <b>structural
+        leaps</b>, and crucially it judges each one by its score <b>after</b> the inner loop
+        has tuned it — <b>comparing optimized vs. optimized, not first-draft vs. first-draft.</b>
+        That's how it escapes the local optimum a flat loop gets stuck in.
+      </div>
+
+      <h2>READING THE GRAPH</h2>
+      <p>Left-to-right lineage, exactly like omnididdy: <b>origin → benchmark → second
+         loop → architecture (▶) → ground loop → experiments (●)</b>.
+         <span style="color:#1a7f37">Green</span> = kept,
+         <span style="color:#cf222e">red</span> = reverted,
+         <span style="color:#0969da">blue</span> = running. The in-progress architecture
+         shows its ground loop expanded so you watch the live tuning build; click any node
+         for its <b>hypothesis</b> and <b>result</b>, and click a container to collapse it.</p>
+
+      <h2>Q1 · WHY I BUILT THIS — problem &amp; insight</h2>
+      <p>Improving any solver or model is a slow human loop: <b>think of an idea → code it →
+         measure it → keep or throw it out → repeat.</b> The bottleneck is the
+         <b>human in that loop</b>. That loop is mechanical enough to hand to an LLM — but a
+         single loop plateaus because it only tweaks parameters. The fix is two loops: an
+         inner loop <b>tunes</b>, an outer loop proposes a <b>structurally new</b> approach
+         and judges it by its <b>tuned ceiling</b>.</p>
+
+      <h2>Q2 · HOW IT WORKS — execution &amp; technical work</h2>
+      <p>Two LLM loops edit one file, scored by a frozen harness. <b>Ground loop (L1, Haiku)</b>
+         tunes parameters, keep-if-better else revert, each candidate in a sandboxed
+         subprocess. <b>Second loop (L2, Sonnet)</b> proposes a structurally different
+         architecture, judged by the best score it reaches <b>after</b> tuning. The
+         <b>★ Demo</b> button loads a finished real-engine run (set-cover: greedy 26% gap →
+         ILP → Lagrangian = <b>55% better</b>, with a tabu-search branch reverted by the
+         gate). The <b>▶ Run the system</b> button actually runs it live through the local
+         Claude CLI — Sonnet proposes, Haiku tunes, the tree builds in real time (no API key).</p>
+
+      <h2>EVALUATION &amp; EVIDENCE</h2>
+      <p><b>Reproducible:</b> <code>python run.py --mock</code> is deterministic —
+         <b>+17.07%</b> every run, zero API calls (I caught and fixed a real stale-bytecode
+         nondeterminism bug getting there). <b>Real runs:</b> the set-cover / max-cut demos
+         are genuine engine output imported from the parent project, disclosed in the README.
+         <b>Honest limits:</b> the search is greedy with no long-term memory, and the
+         hard-benchmark trees were produced by the parent engine and imported.</p>
+
+      <h2>Q3 · USE CASES / IMPACT</h2>
+      <p>Anything with a <b>fitness signal</b>: solvers, heuristics, ML-training code, GPU
+         kernels, even prompts. It lets <b>one person run automated R&amp;D</b> that used to
+         need a team — the "scale yourself" idea made concrete.</p>
+
+      <h2>Q4 · WHAT I'D ADD NEXT</h2>
+      <p>The <b>memory</b> I deliberately trimmed: an archive of rejected ideas plus
+         <b>diversity-driven</b> search, so it <i>explores</i> instead of just hill-climbing.
+         And a clean <b>benchmark abstraction</b> to plug in more substrates — e.g. CIFAR
+         image classification — behind the same two loops.</p>
+
+      <h2>DISCLOSURE &amp; CREDIT</h2>
+      <p>Built with <b>disclosed</b> AI assistance (Claude Code). The offline demo has
+         <b>zero AI calls</b>, so it's fully reproducible. auto-onion is a clean, trimmed
+         reimplementation of my larger project <b>omnididdy</b>, cited throughout.</p>
+    </div>
+  </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -311,6 +423,25 @@ function levelOf(d){
   return t;
 }
 
+// omnididdy-style per-run budget + completeness (runs / ground containers carry it)
+function budgetBlock(n){
+  const total = n.total_experiments;
+  if (n.l1_budget!=null){            // native run: known refinement budget -> live bar
+    const done = n.refines_done!=null ? n.refines_done : 0, bud = n.l1_budget;
+    const tot = total!=null ? total : done+1;
+    const pct = bud>0 ? Math.min(100, Math.round(done/bud*100)) : 100;
+    return `<div class="dlabel">Ground-loop budget</div>`
+      + `<div class="dval">${done} / ${bud} tuning iters spent &nbsp;·&nbsp; ${pct}% complete</div>`
+      + `<div class="bar"><span style="width:${pct}%"></span></div>`
+      + `<div class="hint">${tot} experiments total (1 install + ${done} refinements)</div>`;
+  }
+  if (total!=null && (n.type==="run" || n.type==="ground_container")){  // imported demo: finished
+    return `<div class="dlabel">Ground loop</div>`
+      + `<div class="dval">${total} experiments &nbsp;·&nbsp; run complete</div>`
+      + `<div class="bar"><span style="width:100%"></span></div>`;
+  }
+  return "";
+}
 function showDetail(d){
   const n=d.data, st=statusOf(d);
   const v = n.val_loss!=null ? n.val_loss : n.best_loss;
@@ -321,9 +452,10 @@ function showDetail(d){
     if (pct!=null && Math.abs(pct)>=0.05) result += `   ·   ${Math.abs(pct).toFixed(1)}% ${pct<0?"better":"worse"} than baseline`;
   }
   $("detail").innerHTML =
-      `<div style="margin-bottom:6px"><span class="pill ${st}">${st}</span></div>`
+      `<div style="margin-bottom:6px"><span class="pill ${st}">${st}</span> <span class="hint">${esc(levelOf(d))}</span></div>`
     + `<div class="dlabel">Hypothesis</div><div class="dval">${esc(n.hypothesis || n.name || "—")}</div>`
-    + `<div class="dlabel">Result</div><div class="dval">${result}</div>`;
+    + `<div class="dlabel">Result</div><div class="dval">${result}</div>`
+    + budgetBlock(n);
 }
 
 async function tick(){
@@ -370,6 +502,9 @@ async function doDemo(){
 }
 mount();
 $("btnrun").onclick = doRun; $("btndemo").onclick = doDemo;
+$("btninfo").onclick = ()=> $("infooverlay").classList.add("open");
+$("iclose").onclick = ()=> $("infooverlay").classList.remove("open");
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") $("infooverlay").classList.remove("open"); });
 loadRuns().then(tick); setInterval(tick, 1500);
 </script>
 </body>

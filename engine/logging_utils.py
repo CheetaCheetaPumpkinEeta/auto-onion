@@ -62,7 +62,7 @@ class Recorder:
         self._flush()
 
     # ---- mutation -------------------------------------------------------
-    def start_architecture(self, cycle: int, name: str, code: str) -> None:
+    def start_architecture(self, cycle: int, name: str, code: str, l1_budget: int | None = None) -> None:
         self.state["architectures"].append(
             {
                 "cycle": cycle,
@@ -70,6 +70,7 @@ class Recorder:
                 "status": "running",
                 "best_fitness": float("inf"),
                 "improvement_pct": None,
+                "l1_budget": l1_budget,   # planned refinement iters (install excluded)
                 "code": code,
                 "experiments": [],
             }
@@ -167,10 +168,15 @@ class Recorder:
         for arch in self.state["architectures"]:
             cycle = arch["cycle"]
             best = _num(arch.get("best_fitness"))
+            # refinement experiments completed = total minus the iter-0 install
+            refines_done = max(0, len(arch["experiments"]) - 1)
+            l1_budget = arch.get("l1_budget")
             ground = {
                 "name": "ground", "type": "ground_container",
                 "id": f"ground-{cycle:04d}",
                 "total_experiments": len(arch["experiments"]),
+                "l1_budget": l1_budget,
+                "refines_done": refines_done,
                 "best_loss": best,
                 "children": self._experiment_nodes(arch),
             }
@@ -191,6 +197,8 @@ class Recorder:
                 "best_loss": best,
                 "baseline_loss": BASELINE_LOSS,
                 "total_experiments": len(arch["experiments"]),
+                "l1_budget": l1_budget,
+                "refines_done": refines_done,
                 "improvement_pct": arch.get("improvement_pct"),
                 "hypothesis": arch["name"],
                 "code": arch.get("code", ""),
