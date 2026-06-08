@@ -75,22 +75,29 @@ class ClaudeCLIClient(LLMClient):
     generator with no project context or filesystem detours.
     """
 
-    def __init__(self, model: str, timeout: int = 180):
+    def __init__(self, model: str, timeout: int = 600):
         self.model = model
         self.timeout = timeout
         self._cwd = tempfile.mkdtemp(prefix="auto_onion_cli_")
 
     def complete(self, system: str, user: str, kind: str = "l1") -> str:
         prompt = f"{system}\n\n---\n\n{user}"
-        try:
-            proc = subprocess.run(
-                f"claude --print --model {self.model}",
-                input=prompt, capture_output=True, text=True,
-                timeout=self.timeout, shell=True, cwd=self._cwd,
-            )
-        except subprocess.TimeoutExpired:
-            return ""
-        return proc.stdout or ""
+        # --disallowedTools forces a pure text reply (no agentic file writes that
+        # would leave stdout empty). Retry once on an empty reply.
+        cmd = (f"claude --print --model {self.model} "
+               '--disallowedTools "Write,Edit,MultiEdit,Bash,Read,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit,TodoWrite"')
+        for _ in range(2):
+            try:
+                proc = subprocess.run(
+                    cmd, input=prompt, capture_output=True, text=True,
+                    timeout=self.timeout, shell=True, cwd=self._cwd,
+                )
+            except subprocess.TimeoutExpired:
+                return ""
+            out = (proc.stdout or "").strip()
+            if out:
+                return out
+        return ""
 
 
 class MockClient(LLMClient):
