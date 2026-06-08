@@ -59,8 +59,8 @@
 <body>
   <header>
     <h1>auto-<span class="on">onion</span> <span class="sub">dashboard</span></h1>
-    <button id="btnrun" class="tbtn run" title="run the two loops on TSP (offline, ~20s)">▶ Run two-loop</button>
-    <button id="btndemo" class="tbtn" title="load a real engine run">★ Demo</button>
+    <button id="btnrun" class="tbtn run" title="actually run the two loops now (TSP, offline, ~20s) — the tree builds live">▶ Run the system</button>
+    <button id="btndemo" class="tbtn" title="view an already-finished run (no computation)">★ Demo (pre-run tree)</button>
     <select id="runpick" title="choose a run to view"></select>
     <span class="sub" id="task">loading…</span>
     <div class="best">best&nbsp; <b id="best">—</b> vs baseline</div>
@@ -354,7 +354,7 @@ async function doRun(){
     const r = await (await fetch("/api/run", {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"})).json();
     await loadRuns(); $("runpick").value = r.run; resetView(r.run);
   }catch(e){}
-  setTimeout(()=>{ b.disabled = false; b.textContent = "▶ Run two-loop"; }, 1800);
+  setTimeout(()=>{ b.disabled = false; b.textContent = "▶ Run the system"; }, 1800);
 }
 async function doDemo(){
   try{
