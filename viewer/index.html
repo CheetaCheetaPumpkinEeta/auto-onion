@@ -6,8 +6,8 @@
 <title>auto-onion — lineage graph</title>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
-  :root { --bg:#0b0e14; --panel:#11151c; --line:#222b38; --fg:#e6edf3; --dim:#8b949e;
-          --green:#16a34a; --red:#dc2626; --blue:#2563eb; --purple:#7c3aed; --teal:#0d7377; }
+  :root { --bg:#ffffff; --panel:#f6f8fa; --line:#d0d7de; --fg:#1f2328; --dim:#656d76;
+          --green:#1a7f37; --red:#cf222e; --blue:#0969da; --purple:#8250df; --teal:#0d7377; }
   * { box-sizing:border-box; }
   html,body { height:100%; margin:0; }
   body { background:var(--bg); color:var(--fg); overflow:hidden;
@@ -15,14 +15,14 @@
   header { padding:11px 18px; border-bottom:1px solid var(--line); display:flex;
            align-items:baseline; gap:16px; flex-wrap:wrap; }
   header h1 { font-size:15px; margin:0; letter-spacing:.5px; }
-  header h1 .on { color:#e3b341; }
+  header h1 .on { color:#bf8700; }
   header .sub { color:var(--dim); font-size:12px; }
   header #runpick { background:var(--panel); color:var(--fg); border:1px solid var(--line);
     border-radius:6px; padding:3px 8px; font:inherit; font-size:11px; max-width:300px; cursor:pointer; }
   header .tbtn { background:var(--panel); color:var(--fg); border:1px solid var(--line);
     border-radius:6px; padding:4px 11px; font:inherit; font-size:12px; cursor:pointer; }
   header .tbtn:hover { border-color:var(--dim); }
-  header .tbtn.run { border-color:#1f6f3a; color:#3fb950; }
+  header .tbtn.run { border-color:#1a7f37; color:#1a7f37; }
   header .tbtn:disabled { opacity:.55; cursor:default; }
   .dlabel { color:var(--dim); font-size:10px; text-transform:uppercase; letter-spacing:.6px; margin:11px 0 3px; }
   .dval { font-size:12.5px; line-height:1.55; color:var(--fg); white-space:pre-wrap; word-break:break-word; }
@@ -36,7 +36,7 @@
   .hud button { background:var(--panel); color:var(--fg); border:1px solid var(--line);
                 border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:14px; }
   .hud button:hover { border-color:var(--dim); }
-  .legend { position:absolute; right:12px; top:12px; background:rgba(17,21,28,.86);
+  .legend { position:absolute; right:12px; top:12px; background:rgba(255,255,255,.92);
             border:1px solid var(--line); border-radius:8px; padding:9px 11px; font-size:11px; color:var(--dim); line-height:1.8; }
   .legend i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:middle; }
   .sidebar { border-left:1px solid var(--line); padding:14px; overflow:auto; }
@@ -45,12 +45,12 @@
   .kv { font-size:12px; line-height:1.75; }
   .kv .k { color:var(--dim); display:inline-block; width:78px; }
   .pill { font-size:10px; padding:2px 8px; border-radius:20px; text-transform:uppercase; letter-spacing:.4px; }
-  .pill.kept,.pill.green { background:rgba(22,163,74,.16); color:#3fb950; }
-  .pill.reverted,.pill.red,.pill.failed { background:rgba(220,38,38,.16); color:#f85149; }
-  .pill.running { background:rgba(37,99,235,.18); color:#58a6ff; }
-  .pill.baseline { background:rgba(124,58,237,.18); color:#a371f7; }
-  pre.code { background:#0a0d12; border:1px solid var(--line); border-radius:8px; padding:10px;
-             font-size:11px; line-height:1.5; overflow:auto; max-height:46vh; color:#c9d1d9; white-space:pre; }
+  .pill.kept,.pill.green { background:rgba(26,127,55,.12); color:#1a7f37; }
+  .pill.reverted,.pill.red,.pill.failed { background:rgba(207,34,46,.12); color:#cf222e; }
+  .pill.running { background:rgba(9,105,218,.12); color:#0969da; }
+  .pill.baseline { background:rgba(130,80,223,.12); color:#8250df; }
+  pre.code { background:#f6f8fa; border:1px solid var(--line); border-radius:8px; padding:10px;
+             font-size:11px; line-height:1.5; overflow:auto; max-height:46vh; color:#1f2328; white-space:pre; }
   .hint { color:var(--dim); font-size:11px; }
   .node text { font-family: ui-monospace, Consolas, monospace; pointer-events:none; }
   .zone-label { fill:var(--dim); font-size:11px; font-weight:600; letter-spacing:1.5px; opacity:.6; }
@@ -205,9 +205,9 @@ function render(tree){
   const lsel = gLinks.selectAll("path").data(links, d=>d.target.data.id || (d.target.data.type+d.target.data.name));
   lsel.join(
     en => en.append("path").attr("fill","none").attr("stroke-width",1.6)
-            .attr("stroke", d=>({kept:"#1d5e34",blue:"#1e3a8a",rev:"#5b1d1d"}[linkClass(d)]))
+            .attr("stroke", d=>({kept:"#2da44e",blue:"#54aeff",rev:"#e5a3a3"}[linkClass(d)]))
             .attr("d", link),
-    up => up.attr("stroke", d=>({kept:"#1d5e34",blue:"#1e3a8a",rev:"#5b1d1d"}[linkClass(d)])).attr("d", link),
+    up => up.attr("stroke", d=>({kept:"#2da44e",blue:"#54aeff",rev:"#e5a3a3"}[linkClass(d)])).attr("d", link),
     ex => ex.remove()
   );
 
@@ -219,11 +219,11 @@ function render(tree){
   if (slPos!=null && isFinite(runMax)){
     const x1=crossMin-150, x2=crossMax+220;
     [slPos+DEP*0.5, runMax+DEP*0.5].forEach(py=> gZones.append("line").attr("x1",x1).attr("x2",x2).attr("y1",py).attr("y2",py)
-        .attr("stroke","#30363d").attr("stroke-dasharray","4,5").attr("opacity",.35));
+        .attr("stroke","#d0d7de").attr("stroke-dasharray","4,5").attr("opacity",.7));
     gZones.append("text").attr("class","zone-label").attr("x",x1+6).attr("y",(slPos+runMax)/2)
-        .attr("text-anchor","start").attr("fill","#a371f7").text("SECOND LOOP · ARCHITECTURE");
+        .attr("text-anchor","start").attr("fill","#8250df").text("SECOND LOOP · ARCHITECTURE");
     gZones.append("text").attr("class","zone-label").attr("x",x1+6).attr("y",(runMax+mainMax)/2+DEP)
-        .attr("text-anchor","start").attr("fill","#2dd4bf").text("GROUND LOOP · PARAMETERS");
+        .attr("text-anchor","start").attr("fill","#0d7377").text("GROUND LOOP · PARAMETERS");
   }
 
   // nodes
@@ -237,9 +237,9 @@ function render(tree){
     if(p) g.append("path").attr("class","body").attr("d",p);
     else g.append("circle").attr("class","body").attr("r",nodeRadius(d));
     g.append("circle").attr("class","ring").attr("r",nodeRadius(d)+5).attr("fill","none")
-        .attr("stroke","#e6edf3").attr("stroke-width",1.5).attr("stroke-dasharray","3,2").attr("opacity",0);
-    g.append("text").attr("class","lab").attr("dy","0.32em").attr("font-size",11.5).attr("font-weight",500).attr("fill","#e6edf3");
-    g.append("text").attr("class","sub").attr("dy","1.5em").attr("font-size",9.5).attr("fill","#8b949e");
+        .attr("stroke","#1f2328").attr("stroke-width",1.5).attr("stroke-dasharray","3,2").attr("opacity",0);
+    g.append("text").attr("class","lab").attr("dy","0.32em").attr("font-size",11.5).attr("font-weight",500).attr("fill","#1f2328");
+    g.append("text").attr("class","sub").attr("dy","1.5em").attr("font-size",9.5).attr("fill","#656d76");
   });
   const merge = en.merge(nsel);
   merge.attr("transform", d=>`translate(${d.x},${d.y})`);
@@ -254,15 +254,15 @@ function render(tree){
     const parts=[];
     if (d.data.type==="run" || d.data.type==="ground_experiment"){
       const v = d.data.val_loss!=null?d.data.val_loss:d.data.best_loss;
-      if (v!=null && isFinite(v)) parts.push({t:fmt(v), c:"#8b949e"});
+      if (v!=null && isFinite(v)) parts.push({t:fmt(v), c:"#656d76"});
       const pct = pctOf(d);
-      if (pct!=null && Math.abs(pct)>=0.05) parts.push({t:(pct>0?"+":"")+pct.toFixed(1)+"%", c: pct<0?"#3fb950":"#8b949e"});
+      if (pct!=null && Math.abs(pct)>=0.05) parts.push({t:(pct>0?"+":"")+pct.toFixed(1)+"%", c: pct<0?"#1a7f37":"#656d76"});
     }
-    parts.forEach((p,i)=>{ sub.append("tspan").text(p.t).attr("fill",p.c); if(i<parts.length-1) sub.append("tspan").text("  ").attr("fill","#586069"); });
+    parts.forEach((p,i)=>{ sub.append("tspan").text(p.t).attr("fill",p.c); if(i<parts.length-1) sub.append("tspan").text("  ").attr("fill","#afb8c1"); });
     // expand/collapse caret on runs that hold experiments
     let caret = g.select(".caret");
     if (d.data._collapsible){
-      if (caret.empty()) caret = g.append("text").attr("class","caret").attr("dy","0.32em").attr("font-size",10).attr("fill","#8b949e").attr("pointer-events","none");
+      if (caret.empty()) caret = g.append("text").attr("class","caret").attr("dy","0.32em").attr("font-size",10).attr("fill","#656d76").attr("pointer-events","none");
       caret.attr("x", r+6).attr("text-anchor","start").text(d.data._collapsed ? "▸" : "▾");
     } else if (!caret.empty()) caret.remove();
   });
