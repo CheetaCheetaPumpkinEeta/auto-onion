@@ -84,37 +84,51 @@ Reporting a ratio keeps differently-sized instances comparable and makes the
 result self-contained (no external optimal-tour tables needed).
 
 **The proposer — `engine/llm.py`.** One tiny provider-neutral interface,
-`complete(system, user, kind)`, with two implementations:
-- `AnthropicClient` — real Claude (Opus for L2 architecture, Sonnet for L1 tuning).
+`complete(system, user, kind)`, with three implementations:
+- `ClaudeCLIClient` — **live mode** via the local `claude` CLI (your Claude Code
+  login, **no API key**). This is what the dashboard's Run button uses; the loops
+  pass a **bigger model (Sonnet) for L2 architecture** and a **smaller model (Haiku)
+  for L1 tuning**.
+- `AnthropicClient` — live via the official Anthropic SDK (needs `ANTHROPIC_API_KEY`).
 - `MockClient` — a **deterministic offline** stand-in that returns *real, runnable*
   code from a scripted ladder (`engine/mock_library.py`). It fakes the model's
   *creativity*, not the *mechanism* — the loops, gating, subprocess sandbox, and
-  scoring are identical in both modes. This is what makes the project reproducible
+  scoring are identical in every mode. This is what makes the project reproducible
   by anyone, instantly, with no API key and no cost.
 
 ---
 
-## 3. Quickstart
+## 3. The dashboard (the main artifact)
 
 ```bash
-# 1. Run the whole two-loop system offline (no API key, ~20s, fully deterministic):
-python run.py --mock
-
-# 2. Watch it live in the viewer (separate terminal):
 pip install flask
 python viewer/server.py        # -> http://localhost:5005
-
-# 3. Run it for real with Claude:
-pip install anthropic
-export ANTHROPIC_API_KEY=sk-...        # PowerShell: $env:ANTHROPIC_API_KEY="sk-..."
-python run.py                          # L2=Opus, L1=Sonnet by default
-
-# Knobs:
-python run.py --mock --cycles 4 --l1-iters 5
 ```
 
-The **engine has no dependencies** — `python run.py --mock` runs on a bare Python
-3.10+ install. `flask` is only for the viewer; `anthropic` only for live mode.
+Open it: an **omnididdy-style lineage tree** with two buttons —
+
+- **★ Demo (pre-run tree)** — loads an **already-finished** run instantly, for
+  graders/reviewers (no computation). Bundled: **set-cover** (+55%) and **max-cut**;
+  switch between them (and your own runs) in the dropdown.
+- **▶ Run the system** — **actually runs the two loops live**: a bigger model
+  (Sonnet) proposes architectures, a smaller model (Haiku) tunes, driven by your
+  local `claude` CLI — **no API key needed**. The tree builds in front of you
+  (allow ~5–8 min; Sonnet writes a whole solver per architecture).
+
+Click any node → its **hypothesis and result** (kept/reverted, score, % vs baseline).
+
+**Or skip the dashboard** and run the engine offline on TSP — deterministic, zero setup:
+
+```bash
+python run.py --mock                            # ~20s, no API key, reproducible (+17.07%)
+python run.py --mock --cycles 4 --l1-iters 5    # knobs
+
+# Live from the CLI (no API key — uses your Claude Code login):
+python run.py --l2-model sonnet --l1-model haiku --backend cli
+# ...or with an Anthropic API key instead:  pip install anthropic && export ANTHROPIC_API_KEY=...
+```
+
+`python run.py --mock` needs only bare Python 3.10+; `flask` is just for the dashboard.
 
 ---
 
@@ -143,9 +157,9 @@ winning architecture: multi-start NN + 2-opt + or-opt, keep the best tour over r
 
 The outer loop discovered a clear ladder of *shapes* — construction → local search
 → metaheuristic — each one tuned to its ceiling before being compared, ending
-**17.1 % shorter** than the nearest-neighbour baseline. The viewer renders this as
+**17.1 % shorter** than the nearest-neighbour baseline. The dashboard renders this as
 an interactive d3 lineage graph — the architecture trunk (green = kept, red =
-reverted) with each node's full `solution.py` in the side panel.
+reverted); click a node for its hypothesis and result.
 
 ### A real run, not just the toy
 
@@ -166,20 +180,21 @@ That run was produced by the **parent engine, omnididdy** (the larger system
 auto-onion is a trimmed reimplementation of), and imported into auto-onion's
 viewer format by [`scripts/import_run.py`](scripts/import_run.py) — which reads the
 run's plain JSON/TSV artifacts directly, with no dependency on the parent project.
-Click any architecture node to read its actual `solution.py`. Disclosed in §8.
+A second demo, **max-cut**, is bundled too (switch via the dashboard's run-picker).
+Click any node to see the hypothesis it tried and its result. Disclosed in §8.
 
 ---
 
 ## 5. Repo layout
 
 ```
-run.py                          entry point (--mock / live, --cycles, --l1-iters)
+run.py                          entry point (--mock / --backend cli, --cycles, --l1-iters, --l2-model, --l1-model)
 engine/
   second_loop.py                L2: architecture search by post-tuning ceiling
   ground_loop.py                L1: keep-or-revert refinement + subprocess sandbox
   harness.py                    FROZEN scorer (tour length vs baseline)
   eval_runner.py                runs a candidate in an isolated subprocess
-  llm.py                        provider-neutral client: Anthropic + deterministic Mock
+  llm.py                        client: claude CLI (live, no key) + Anthropic SDK + deterministic Mock
   mock_library.py               scripted, runnable TSP architectures for offline mode
   logging_utils.py              writes state.json (viewer) + results.tsv (flat log)
   prompts.py                    loads the system prompts
@@ -191,12 +206,13 @@ task/
   templates/solution_baseline.py gold-master baseline (frozen reference)
   instances.py                  deterministic, seeded TSP instances
 viewer/
-  server.py                     ~30-line Flask app: serves the page + /api/state
-  index.html                    self-contained d3 lineage graph + code panel
+  server.py                     Flask dashboard: /api/runs, /api/state, POST /api/run (launch a live run)
+  index.html                    self-contained d3 lineage tree + Run/Demo buttons + run-picker
 scripts/
   import_run.py                 turn a real parent-engine run into a viewer state.json
 runs/
-  demo-set-cover/               committed REAL run (set-cover) shown by default (see §4)
+  demo-set-cover/               committed REAL run (set-cover, +55%) — bundled demo
+  demo-max-cut/                 committed REAL run (max-cut)        — bundled demo
   <timestamp>/                  your own runs (git-ignored)
 ```
 
@@ -260,13 +276,14 @@ Code (Claude Opus 4.x)** wrote much of the code under that direction. The system
 the project is reproducible without credentials. All design decisions, limitations,
 and the choice of what to trim from the parent project are my own.
 
-**On the bundled `runs/demo-set-cover/` data:** that sample run was *not* produced by
-running auto-onion (whose bundled benchmark is TSP). It is **real output from the
-parent engine (omnididdy)** on the set-cover benchmark, imported into auto-onion's
-viewer format via `scripts/import_run.py` so the viewer can show the engine working
-on a non-toy problem. It is genuine engine output, clearly labelled as such, and
-reproducible against the parent project; auto-onion's own from-scratch reproducible
-run is `python run.py --mock`.
+**On the bundled `runs/demo-*` data (set-cover, max-cut):** those sample runs were
+*not* produced by running auto-onion (whose own runnable substrate is TSP). They are
+**real output from the parent engine (omnididdy)** on the set-cover and max-cut
+benchmarks, imported into auto-onion's viewer format via `scripts/import_run.py` so
+the dashboard can show the engine working on non-toy problems. Genuine engine output,
+clearly labelled as such. auto-onion's own from-scratch reproducible run is
+`python run.py --mock`; its **▶ Run the system** button genuinely executes the two
+loops with real models (Sonnet + Haiku) via your Claude CLI.
 
 ---
 
