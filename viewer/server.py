@@ -13,6 +13,7 @@ Demo button (load a bundled real-engine run instantly).
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -54,8 +55,21 @@ def _default_run(dirs: list[Path]) -> Path | None:
     return sorted(dirs, key=_order_key)[0] if dirs else None
 
 
+def _sanitize(o):
+    """Replace inf/nan with None — Python's json writes them as `Infinity`/`NaN`,
+    which is invalid JSON the browser can't parse (a live run writes inf for
+    not-yet-scored architectures). Makes any state.json safe to serve."""
+    if isinstance(o, float):
+        return None if (math.isinf(o) or math.isnan(o)) else o
+    if isinstance(o, dict):
+        return {k: _sanitize(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_sanitize(v) for v in o]
+    return o
+
+
 def _load(d: Path) -> dict:
-    data = json.loads((d / "state.json").read_text(encoding="utf-8"))
+    data = _sanitize(json.loads((d / "state.json").read_text(encoding="utf-8")))
     data["run"] = d.name
     return data
 
