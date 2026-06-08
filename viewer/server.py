@@ -41,17 +41,13 @@ def _order_key(d: Path):
 
 
 def _default_run(dirs: list[Path]) -> Path | None:
-    # If a real run is actively building, default to it so a live run shows up
-    # immediately; otherwise a demo (already-run tree) for graders/reviewers.
+    # Most-recently-touched non-demo run wins (so a live run shows immediately) —
+    # by mtime, not a status read that could race a concurrent write; else a demo.
     now = time.time()
-    for d in sorted((x for x in dirs if not x.name.startswith("demo-")),
-                    key=lambda x: -os.path.getmtime(x / "state.json")):
-        try:
-            st = json.loads((d / "state.json").read_text(encoding="utf-8"))
-            if st.get("status") == "running" and now - os.path.getmtime(d / "state.json") < 1800:
-                return d
-        except Exception:
-            pass
+    non_demo = sorted((x for x in dirs if not x.name.startswith("demo-")),
+                      key=lambda x: -os.path.getmtime(x / "state.json"))
+    if non_demo and now - os.path.getmtime(non_demo[0] / "state.json") < 1800:
+        return non_demo[0]
     return sorted(dirs, key=_order_key)[0] if dirs else None
 
 
@@ -69,9 +65,15 @@ def _sanitize(o):
 
 
 def _load(d: Path) -> dict:
-    data = _sanitize(json.loads((d / "state.json").read_text(encoding="utf-8")))
-    data["run"] = d.name
-    return data
+    p = d / "state.json"
+    for _ in range(5):  # a live run may be mid-write (partial JSON) — retry briefly
+        try:
+            data = _sanitize(json.loads(p.read_text(encoding="utf-8")))
+            data["run"] = d.name
+            return data
+        except (json.JSONDecodeError, ValueError):
+            time.sleep(0.04)
+    return {"run": d.name, "tree": None, "best_improvement_pct": None, "task": "loading…"}
 
 
 @app.route("/")

@@ -94,32 +94,37 @@ const C = {
   origin:"#374151", benchmark:"#0d7377", second_loop:"#7c3aed", ground_container:"#6b7280",
   green:"#16a34a", red:"#dc2626", blue:"#2563eb", baseline:"#6d28d9",
 };
-const SIB = 210, DEP = 84;         // sibling spacing, depth spacing (vertical layout)
+const SIB = 44, DEP = 210;         // sibling spacing, depth spacing (horizontal layout)
 let svg, gMain, gZones, gLinks, gNodes, zoom;
 let transform = null, didFit = false, selectedId = null, lastTree = null;
-let expanded = new Set();          // run ids whose ground experiments are shown
+let collapsed = new Set();         // node ids toggled against their default collapse state
+let activeGroundIds = new Set();   // ground containers under a running architecture
 let currentRun = "";               // which run dir the viewer is showing
 
 function idOf(d){ return d.data.id || (d.data.type+"/"+d.data.name); }
-// Collapse experiments by default (like omnididdy): a run shows its `ground`
-// container of L1 experiments only when expanded. Default view = the L2
-// architecture trunk; click a run to reveal its parameter-tuning experiments.
+// Collapse like omnididdy: any container node retracts on click. The `ground`
+// container of L1 experiments is collapsed by default EXCEPT under the
+// in-progress architecture, so you watch the live tuning build.
+function canCollapse(n){ return !!(n.children && n.children.length) && n.type!=="ground_experiment"; }
+function defaultCollapsed(n){ return n.type==="ground_container" && !activeGroundIds.has(n.id); }
+function isCollapsed(n){ return canCollapse(n) && (defaultCollapsed(n) !== collapsed.has(n.id)); }
 function prune(node){
   const c = Object.assign({}, node);
   if (node.children && node.children.length){
-    const collapsible = node.type==="run" && node.children.some(k=>k.type==="ground_container");
-    let kids = node.children;
-    if (collapsible && !expanded.has(node.id)) kids = kids.filter(k=>k.type!=="ground_container");
-    c.children = kids.map(prune);
-    c._collapsible = collapsible;
-    c._collapsed = collapsible && !expanded.has(node.id);
+    const coll = isCollapsed(node);
+    c._collapsible = canCollapse(node);
+    c._collapsed = coll;
+    c.children = coll ? [] : node.children.map(prune);
   }
   return c;
 }
-function autoExpandBest(tree){
-  let best=null, bv=Infinity;
-  (function w(n){ if(n.type==="run" && n.best_loss!=null && n.best_loss<bv){bv=n.best_loss;best=n;} (n.children||[]).forEach(w); })(tree);
-  if (best) expanded.add(best.id);
+function computeActive(tree){
+  activeGroundIds = new Set();
+  (function w(n){
+    if (n.type==="run" && (n.run_rank==="running" || n.active))
+      (n.children||[]).forEach(c=>{ if(c.type==="ground_container" && c.id) activeGroundIds.add(c.id); });
+    (n.children||[]).forEach(w);
+  })(tree);
 }
 
 function nodeColor(d){
@@ -190,6 +195,7 @@ function mount(){
 }
 
 function layout(tree){
+  computeActive(tree);
   const root = d3.hierarchy(prune(tree));
   d3.tree().nodeSize([SIB, DEP])(root);
   return root;
@@ -200,8 +206,8 @@ function render(tree){
   const nodes = root.descendants(), links = root.links();
   const X = d => d.y, Y = d => d.x;   // horizontal: depth->x, sibling->y
 
-  // links (curved, top-down)
-  const link = d3.linkVertical().x(d=>d.x).y(d=>d.y);
+  // links (curved, left-to-right — horizontal like omnididdy)
+  const link = d3.linkHorizontal().x(d=>d.y).y(d=>d.x);
   const lsel = gLinks.selectAll("path").data(links, d=>d.target.data.id || (d.target.data.type+d.target.data.name));
   lsel.join(
     en => en.append("path").attr("fill","none").attr("stroke-width",1.6)
@@ -211,26 +217,26 @@ function render(tree){
     ex => ex.remove()
   );
 
-  // zone bands (SECOND LOOP / GROUND LOOP) — horizontal bands, mirrors omnididdy tree-v
+  // zone bands (SECOND LOOP / GROUND LOOP) — vertical dividers, horizontal layout
   gZones.selectAll("*").remove();
   let slPos=null, runMax=-Infinity, mainMax=-Infinity, crossMin=Infinity, crossMax=-Infinity;
   nodes.forEach(d=>{ const m=d.y, c=d.x; mainMax=Math.max(mainMax,m); crossMin=Math.min(crossMin,c); crossMax=Math.max(crossMax,c);
                      if(d.data.type==="second_loop") slPos=m; if(d.data.type==="run") runMax=Math.max(runMax,m); });
   if (slPos!=null && isFinite(runMax)){
-    const x1=crossMin-150, x2=crossMax+220;
-    [slPos+DEP*0.5, runMax+DEP*0.5].forEach(py=> gZones.append("line").attr("x1",x1).attr("x2",x2).attr("y1",py).attr("y2",py)
+    const y1=crossMin-44, y2=crossMax+44;
+    [slPos+DEP*0.5, runMax+DEP*0.5].forEach(px=> gZones.append("line").attr("x1",px).attr("x2",px).attr("y1",y1).attr("y2",y2)
         .attr("stroke","#d0d7de").attr("stroke-dasharray","4,5").attr("opacity",.7));
-    gZones.append("text").attr("class","zone-label").attr("x",x1+6).attr("y",(slPos+runMax)/2)
-        .attr("text-anchor","start").attr("fill","#8250df").text("SECOND LOOP · ARCHITECTURE");
-    gZones.append("text").attr("class","zone-label").attr("x",x1+6).attr("y",(runMax+mainMax)/2+DEP)
-        .attr("text-anchor","start").attr("fill","#0d7377").text("GROUND LOOP · PARAMETERS");
+    gZones.append("text").attr("class","zone-label").attr("x",(slPos+runMax)/2).attr("y",crossMin-26)
+        .attr("text-anchor","middle").attr("fill","#8250df").text("SECOND LOOP · ARCHITECTURE");
+    gZones.append("text").attr("class","zone-label").attr("x",(runMax+mainMax)/2+DEP*0.5).attr("y",crossMin-26)
+        .attr("text-anchor","middle").attr("fill","#0d7377").text("GROUND LOOP · PARAMETERS");
   }
 
   // nodes
   const nsel = gNodes.selectAll("g.node").data(nodes, d=>d.data.id || (d.data.type+"/"+d.data.name));
   const en = nsel.enter().append("g").attr("class","node").style("cursor","pointer")
       .on("click", (e,d)=>{ selectedId = idOf(d);
-        if (d.data._collapsible){ const id=d.data.id; expanded.has(id)?expanded.delete(id):expanded.add(id); if(lastTree) render(lastTree); }
+        if (d.data._collapsible){ const id=d.data.id; collapsed.has(id)?collapsed.delete(id):collapsed.add(id); if(lastTree) render(lastTree); }
         showDetail(d); paintSelection(); });
   en.each(function(d){
     const g=d3.select(this), p=shapePath(d);
@@ -242,7 +248,7 @@ function render(tree){
     g.append("text").attr("class","sub").attr("dy","1.5em").attr("font-size",9.5).attr("fill","#656d76");
   });
   const merge = en.merge(nsel);
-  merge.attr("transform", d=>`translate(${d.x},${d.y})`);
+  merge.attr("transform", d=>`translate(${d.y},${d.x})`);
   merge.select(".body").attr("fill", d=>nodeColor(d))
        .attr("stroke", d=>d3.color(nodeColor(d)).darker(0.6)).attr("stroke-width",1.3);
   merge.each(function(d){
@@ -263,7 +269,7 @@ function render(tree){
     let caret = g.select(".caret");
     if (d.data._collapsible){
       if (caret.empty()) caret = g.append("text").attr("class","caret").attr("dy","0.32em").attr("font-size",10).attr("fill","#656d76").attr("pointer-events","none");
-      caret.attr("x", r+6).attr("text-anchor","start").text(d.data._collapsed ? "▸" : "▾");
+      caret.attr("x", -(r+7)).attr("text-anchor","end").text(d.data._collapsed ? "▸" : "▾");
     } else if (!caret.empty()) caret.remove();
   });
   nsel.exit().remove();
@@ -326,7 +332,6 @@ async function tick(){
     $("task").textContent = s.task || "";
     $("best").textContent = (s.best_improvement_pct==null||s.empty) ? "—" : (s.best_improvement_pct>0?"+":"")+Number(s.best_improvement_pct).toFixed(2)+"%";
     if (!s.tree){ return; }
-    if (!didFit) autoExpandBest(s.tree);
     lastTree = s.tree;
     render(s.tree);
   }catch(e){ /* keep retrying */ }
@@ -344,7 +349,7 @@ async function loadRuns(){
   }catch(e){}
 }
 function resetView(run){
-  currentRun = run; didFit = false; expanded = new Set(); selectedId = null; lastBest = null;
+  currentRun = run; didFit = false; collapsed = new Set(); selectedId = null; lastBest = null;
   $("detail").innerHTML = '<span class="hint">Click a node to see its hypothesis and result.</span>';
   tick();
 }

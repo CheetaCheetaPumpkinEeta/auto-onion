@@ -15,6 +15,7 @@ the only "memory" this trimmed-down system has is this flat log.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 METRIC_NAME = "tour ratio"      # mean tour length / nearest-neighbour baseline
@@ -231,4 +232,6 @@ class Recorder:
 
     def _flush(self) -> None:
         self.state["tree"] = self._build_tree()
-        self.state_path.write_text(json.dumps(self.state, indent=2), encoding="utf-8")
+        tmp = self.state_path.with_name(self.state_path.name + ".tmp")
+        tmp.write_text(json.dumps(self.state, indent=2), encoding="utf-8")
+        os.replace(tmp, self.state_path)  # atomic rename — readers never see a partial file
