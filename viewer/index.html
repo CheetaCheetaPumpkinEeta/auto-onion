@@ -18,7 +18,14 @@
   header h1 .on { color:#e3b341; }
   header .sub { color:var(--dim); font-size:12px; }
   header #runpick { background:var(--panel); color:var(--fg); border:1px solid var(--line);
-    border-radius:6px; padding:3px 8px; font:inherit; font-size:11px; max-width:360px; cursor:pointer; }
+    border-radius:6px; padding:3px 8px; font:inherit; font-size:11px; max-width:300px; cursor:pointer; }
+  header .tbtn { background:var(--panel); color:var(--fg); border:1px solid var(--line);
+    border-radius:6px; padding:4px 11px; font:inherit; font-size:12px; cursor:pointer; }
+  header .tbtn:hover { border-color:var(--dim); }
+  header .tbtn.run { border-color:#1f6f3a; color:#3fb950; }
+  header .tbtn:disabled { opacity:.55; cursor:default; }
+  .dlabel { color:var(--dim); font-size:10px; text-transform:uppercase; letter-spacing:.6px; margin:11px 0 3px; }
+  .dval { font-size:12.5px; line-height:1.55; color:var(--fg); white-space:pre-wrap; word-break:break-word; }
   header .best { margin-left:auto; font-size:12px; color:var(--dim); }
   header .best b { color:var(--green); font-size:20px; }
   main { display:grid; grid-template-columns: 1fr 380px; height:calc(100vh - 46px); }
@@ -51,9 +58,11 @@
 </head>
 <body>
   <header>
-    <h1>auto-<span class="on">onion</span> <span class="sub">lineage graph</span></h1>
-    <span class="sub" id="task">loading…</span>
+    <h1>auto-<span class="on">onion</span> <span class="sub">dashboard</span></h1>
+    <button id="btnrun" class="tbtn run" title="run the two loops on TSP (offline, ~20s)">▶ Run two-loop</button>
+    <button id="btndemo" class="tbtn" title="load a real engine run">★ Demo</button>
     <select id="runpick" title="choose a run to view"></select>
+    <span class="sub" id="task">loading…</span>
     <div class="best">best&nbsp; <b id="best">—</b> vs baseline</div>
   </header>
   <main>
@@ -73,17 +82,14 @@
     <aside class="sidebar">
       <div class="card">
         <h2>SELECTED NODE</h2>
-        <div id="detail"><span class="hint">Click a node in the graph to inspect it.</span></div>
-      </div>
-      <div class="card" id="codecard" style="display:none">
-        <h2 id="codetitle">CODE</h2>
-        <pre class="code" id="code"></pre>
+        <div id="detail"><span class="hint">Click a node to see its hypothesis and result.</span></div>
       </div>
     </aside>
   </main>
 
 <script>
 const $ = (id) => document.getElementById(id);
+function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 const C = {
   origin:"#374151", benchmark:"#0d7377", second_loop:"#7c3aed", ground_container:"#6b7280",
   green:"#16a34a", red:"#dc2626", blue:"#2563eb", baseline:"#6d28d9",
@@ -301,17 +307,17 @@ function levelOf(d){
 
 function showDetail(d){
   const n=d.data, st=statusOf(d);
-  const v = n.val_loss!=null?n.val_loss:n.best_loss;
+  const v = n.val_loss!=null ? n.val_loss : n.best_loss;
   const pct = pctOf(d);
-  let html = `<div style="margin-bottom:8px"><span class="pill ${st}">${st}</span></div>`;
-  html += `<div class="kv"><span class="k">node</span>${(n.name||"").replace(/</g,"&lt;")}</div>`;
-  html += `<div class="kv"><span class="k">level</span>${levelOf(d)}</div>`;
-  if (v!=null && isFinite(v)) html += `<div class="kv"><span class="k">fitness</span>${fmt(v)}${pct!=null?`  (${pct>0?"+":""}${pct.toFixed(2)}% vs baseline)`:""}</div>`;
-  if (n.hypothesis) html += `<div class="kv" style="margin-top:7px;color:#e6edf3">${(n.hypothesis||"").replace(/</g,"&lt;")}</div>`;
-  $("detail").innerHTML = html;
-  if (n.code){ $("codecard").style.display="block"; $("codetitle").textContent = "CODE · "+(n.type==="run"?"architecture":"solution.py");
-               $("code").textContent = n.code; }
-  else $("codecard").style.display="none";
+  let result = "—";
+  if (v!=null && isFinite(v)){
+    result = "score " + fmt(v);
+    if (pct!=null && Math.abs(pct)>=0.05) result += `   ·   ${Math.abs(pct).toFixed(1)}% ${pct<0?"better":"worse"} than baseline`;
+  }
+  $("detail").innerHTML =
+      `<div style="margin-bottom:6px"><span class="pill ${st}">${st}</span></div>`
+    + `<div class="dlabel">Hypothesis</div><div class="dval">${esc(n.hypothesis || n.name || "—")}</div>`
+    + `<div class="dlabel">Result</div><div class="dval">${result}</div>`;
 }
 
 async function tick(){
@@ -334,11 +340,32 @@ async function loadRuns(){
       o.textContent=(it.demo?"demo · ":"")+it.run+best; sel.appendChild(o); });
     if(!currentRun) currentRun = r.default || ((r.runs[0]||{}).run) || "";
     sel.value = currentRun;
-    sel.onchange = ()=>{ currentRun=sel.value; didFit=false; expanded=new Set(); selectedId=null; lastBest=null;
-      $("detail").innerHTML='<span class="hint">Click a node in the graph to inspect it.</span>'; $("codecard").style.display="none"; tick(); };
+    sel.onchange = ()=> resetView(sel.value);
   }catch(e){}
 }
-mount(); loadRuns().then(tick); setInterval(tick, 1500);
+function resetView(run){
+  currentRun = run; didFit = false; expanded = new Set(); selectedId = null; lastBest = null;
+  $("detail").innerHTML = '<span class="hint">Click a node to see its hypothesis and result.</span>';
+  tick();
+}
+async function doRun(){
+  const b = $("btnrun"); b.disabled = true; b.textContent = "running…";
+  try{
+    const r = await (await fetch("/api/run", {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"})).json();
+    await loadRuns(); $("runpick").value = r.run; resetView(r.run);
+  }catch(e){}
+  setTimeout(()=>{ b.disabled = false; b.textContent = "▶ Run two-loop"; }, 1800);
+}
+async function doDemo(){
+  try{
+    const r = await (await fetch("/api/runs")).json();
+    const demo = (r.runs||[]).find(x=>x.demo) || (r.runs||[])[0];
+    if(demo){ $("runpick").value = demo.run; resetView(demo.run); }
+  }catch(e){}
+}
+mount();
+$("btnrun").onclick = doRun; $("btndemo").onclick = doDemo;
+loadRuns().then(tick); setInterval(tick, 1500);
 </script>
 </body>
 </html>

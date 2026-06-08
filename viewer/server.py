@@ -1,8 +1,12 @@
-"""Ultra-simple live viewer.
+"""Dashboard server.
 
-A single Flask process that serves one HTML page and a small JSON API. The page
-polls ``/api/state`` and redraws the lineage graph. A run-picker lets you switch
-between the bundled real-engine demos (``runs/demo-*``) and your own runs.
+A single Flask process that serves the lineage-graph dashboard and a small API:
+  GET  /api/runs            list runs (bundled demos + your own)
+  GET  /api/state?run=NAME  one run's tree (the graph polls this)
+  POST /api/run             launch a fresh two-loop run (mock TSP) and return its name
+
+The page has a Run button (kick off the engine, watch the graph build live) and a
+Demo button (load a bundled real-engine run instantly).
 
     python viewer/server.py     ->     http://localhost:5005
 """
@@ -10,6 +14,9 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -67,15 +74,34 @@ def runs():
 def state():
     dirs = _run_dirs()
     want = request.args.get("run")
-    target = next((d for d in dirs if d.name == want), None) if want else None
-    if target is None:
-        target = _default_run(dirs)
+    if want:
+        target = next((d for d in dirs if d.name == want), None)
+        if target is None:  # a just-launched run whose state.json hasn't appeared yet
+            return jsonify({"empty": True, "tree": None, "best_improvement_pct": None,
+                            "run": want, "task": "starting…"})
+        return jsonify(_load(target))
+    target = _default_run(dirs)
     if target is None:
         return jsonify({"empty": True, "tree": None, "best_improvement_pct": 0.0,
-                        "task": "no runs yet — run:  python run.py --mock"})
+                        "task": "no runs yet — press Run"})
     return jsonify(_load(target))
 
 
+@app.route("/api/run", methods=["POST"])
+def run():
+    """Launch a simple two-loop run (offline mock TSP) in the background and
+    return its run name so the page can follow it live."""
+    body = request.get_json(silent=True) or {}
+    name = "run-" + time.strftime("%Y%m%d-%H%M%S")
+    cmd = [sys.executable, str(REPO / "run.py"), "--mock",
+           "--run-dir", f"runs/{name}",
+           "--cycles", str(int(body.get("cycles", 3))),
+           "--l1-iters", str(int(body.get("l1_iters", 4)))]
+    subprocess.Popen(cmd, cwd=str(REPO),
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return jsonify({"run": name})
+
+
 if __name__ == "__main__":
-    print("auto-onion viewer  ->  http://localhost:5005")
+    print("auto-onion dashboard  ->  http://localhost:5005")
     app.run(host="127.0.0.1", port=5005, debug=False)
