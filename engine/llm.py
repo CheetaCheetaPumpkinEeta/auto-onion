@@ -78,7 +78,10 @@ class ClaudeCLIClient(LLMClient):
     def __init__(self, model: str, timeout: int = 600):
         self.model = model
         self.timeout = timeout
-        self._cwd = tempfile.mkdtemp(prefix="auto_onion_cli_")
+        # Run in the repo root (stable). A temp dir can be cleaned mid-run ->
+        # NotADirectoryError kills a long run; --disallowedTools keeps the CLI
+        # from touching files here.
+        self._cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     def complete(self, system: str, user: str, kind: str = "l1") -> str:
         prompt = f"{system}\n\n---\n\n{user}"
